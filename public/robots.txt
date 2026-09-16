@@ -1,0 +1,3 @@
+# Soukromý projekt — nic neindexovat.
+User-agent: *
+Disallow: /

@@ -1,0 +1,55 @@
+name: Nasazení na GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  # Ruční spuštění z karty Actions.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Dvě rychlé změny za sebou: starší nasazení se zruší, dojede jen poslední.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      # Rozbitý kód se nenasadí: nejdřív typy a testy, pak build.
+      - run: npm run typecheck
+      - run: npm test
+
+      - name: Build
+        run: npx vite build
+        env:
+          # Stránka běží v podsložce podle názvu repozitáře (/nazev-repa/).
+          # Výjimka je repozitář <uzivatel>.github.io, ten běží v kořeni.
+          VITE_BASE: ${{ endsWith(github.event.repository.name, '.github.io') && '/' || format('/{0}/', github.event.repository.name) }}
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
