@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { EMPTY_FILTER, type LectureFilter } from '../domain/filter';
 import { isLectureStatus } from '../domain/status';
-import type { Id } from '../domain/types';
+import { isValidIsoDate } from '../domain/date';
+import type { Id, IsoDate } from '../domain/types';
 
 /**
  * Směrování přes hash. Důvod není šetření závislostí, ale GitHub Pages:
@@ -12,13 +13,20 @@ import type { Id } from '../domain/types';
  *   #/?q=limity&s=summary      Co mě čeká s filtrem (přežije reload i sdílení odkazu)
  *   #/predmety                 seznam předmětů
  *   #/predmety/<id>            detail předmětu
- *   #/nastaveni                záloha, úložiště, vzhled
+ *   #/nastaveni                záloha, úložiště, vzhled, semestry
+ *   #/rozvrh                   týdenní rozvrh
+ *   #/rozvrh?t=2026-09-21      rozvrh konkrétního týdne
+ *   #/prednaska/<id>           detail přednášky se zápisky
+ *   #/statistiky               tempo a postup
  */
 export type Route =
   | { name: 'upNext'; filter: LectureFilter }
   | { name: 'subjects' }
   | { name: 'subject'; id: Id }
-  | { name: 'settings' };
+  | { name: 'settings' }
+  | { name: 'schedule'; week: IsoDate | null }
+  | { name: 'lecture'; id: Id }
+  | { name: 'stats' };
 
 export const DEFAULT_ROUTE: Route = { name: 'upNext', filter: EMPTY_FILTER };
 
@@ -71,6 +79,12 @@ export function parseHash(hash: string): Route {
     return second === undefined ? { name: 'subjects' } : { name: 'subject', id: second };
   }
   if (first === 'nastaveni') return { name: 'settings' };
+  if (first === 'statistiky') return { name: 'stats' };
+  if (first === 'prednaska' && second !== undefined) return { name: 'lecture', id: second };
+  if (first === 'rozvrh') {
+    const week = new URLSearchParams(search).get('t');
+    return { name: 'schedule', week: week !== null && isValidIsoDate(week) ? week : null };
+  }
   if (first === undefined) return { name: 'upNext', filter: filterFromSearch(search) };
   return DEFAULT_ROUTE;
 }
@@ -87,6 +101,12 @@ export function buildHash(route: Route): string {
       return `#/predmety/${encodeURIComponent(route.id)}`;
     case 'settings':
       return '#/nastaveni';
+    case 'stats':
+      return '#/statistiky';
+    case 'lecture':
+      return `#/prednaska/${encodeURIComponent(route.id)}`;
+    case 'schedule':
+      return route.week === null ? '#/rozvrh' : `#/rozvrh?t=${route.week}`;
   }
 }
 
@@ -96,14 +116,24 @@ export interface Router {
   go: (route: Route) => void;
   /** Nahradí aktuální položku. Pro psaní do hledání — jinak by každé písmeno bylo krokem zpět. */
   replace: (route: Route) => void;
-  back: () => void;
+  /**
+   * Zpět v historii, pokud uživatel v aplikaci už někam přešel; jinak na
+   * `fallback`. Otevřený odkaz na detail by jinak tlačítkem Zpět aplikaci zavřel.
+   */
+  back: (fallback: Route) => void;
 }
+
+/** Kolik přechodů proběhlo uvnitř aplikace od jejího otevření. */
+let inAppNavigations = 0;
 
 export function useHashRoute(): Router {
   const [route, setRoute] = useState<Route>(() => parseHash(window.location.hash));
 
   useEffect(() => {
-    const onHashChange = (): void => setRoute(parseHash(window.location.hash));
+    const onHashChange = (): void => {
+      inAppNavigations += 1;
+      setRoute(parseHash(window.location.hash));
+    };
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
@@ -119,8 +149,14 @@ export function useHashRoute(): Router {
     setRoute(next);
   }, []);
 
-  const back = useCallback((): void => {
-    window.history.back();
+  const back = useCallback((fallback: Route): void => {
+    if (inAppNavigations > 0) {
+      inAppNavigations -= 2; // návrat sám vyvolá hashchange, který počítadlo zase zvedne
+      window.history.back();
+      return;
+    }
+    window.history.replaceState(null, '', buildHash(fallback));
+    setRoute(fallback);
   }, []);
 
   return { route, go, replace, back };

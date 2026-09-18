@@ -18,6 +18,7 @@ import { useBackupActions, useBackupStatus } from '../hooks/useBackup';
 import { useStorageInfo } from '../hooks/useStorage';
 import type { ThemeChoice } from '../hooks/useTheme';
 import { ImportDialog } from '../components/ImportDialog';
+import { TermsSection } from '../components/TermsSection';
 import { Button } from '../components/ui/Button';
 import { cx } from '../components/tokens';
 
@@ -32,6 +33,7 @@ export function SettingsPanel({ themeChoice, onThemeChange }: SettingsPanelProps
       <div className="mx-auto flex max-w-2xl flex-col gap-4 px-4 py-4">
         <h2 className="text-lg font-semibold">Nastavení</h2>
         <BackupSection />
+        <TermsSection />
         <StorageSection />
         <AppearanceSection choice={themeChoice} onChange={onThemeChange} />
         <AboutSection />
@@ -208,6 +210,11 @@ function AppearanceSection({
 const SHORTCUTS: ReadonlyArray<[string, string]> = [
   ['n', 'Nová přednáška'],
   ['/', 'Hledat'],
+  ['j / k', 'Další / předchozí přednáška v seznamu'],
+  ['Enter', 'Otevřít vybranou přednášku'],
+  ['1 – 5', 'Nastavit stav vybrané přednášky'],
+  ['0', 'Přeskočit vybranou přednášku'],
+  ['g r', 'Rozvrh'],
   ['Esc', 'Zavřít okno, vymazat hledání'],
 ];
 

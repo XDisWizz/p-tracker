@@ -1,5 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { BookOpen, GraduationCap, Inbox, Monitor, Moon, Settings, Sun } from 'lucide-react';
+import {
+  BarChart3,
+  BookOpen,
+  CalendarDays,
+  GraduationCap,
+  Inbox,
+  Monitor,
+  Moon,
+  Settings,
+  Sun,
+} from 'lucide-react';
 import { EMPTY_FILTER, browseLectures, groupByDue, type LectureFilter } from './domain/filter';
 import { todayIso } from './domain/date';
 import type { Id } from './domain/types';
@@ -12,6 +22,9 @@ import { SubjectsPanel } from './screens/SubjectsPanel';
 import { SubjectDetailPanel } from './screens/SubjectDetailPanel';
 import { UpNextPanel } from './screens/UpNextPanel';
 import { SettingsPanel } from './screens/SettingsPanel';
+import { SchedulePanel } from './screens/SchedulePanel';
+import { LectureDetailPanel } from './screens/LectureDetailPanel';
+import { StatsPanel } from './screens/StatsPanel';
 import { NewLectureFlow } from './components/NewLectureFlow';
 import { UpdatePrompt } from './components/UpdatePrompt';
 import { IconButton } from './components/ui/Button';
@@ -53,6 +66,26 @@ export function App() {
   );
 }
 
+type Section = 'upNext' | 'schedule' | 'subjects' | 'stats' | 'settings';
+
+/** Do které záložky navigace obrazovka patří. */
+function sectionOf(route: Route): Section {
+  switch (route.name) {
+    case 'upNext':
+      return 'upNext';
+    case 'schedule':
+      return 'schedule';
+    case 'subjects':
+    case 'subject':
+    case 'lecture':
+      return 'subjects';
+    case 'stats':
+      return 'stats';
+    case 'settings':
+      return 'settings';
+  }
+}
+
 function Shell() {
   const { route, go, replace, back } = useHashRoute();
   const theme = useTheme();
@@ -67,13 +100,13 @@ function Shell() {
   const lastFilter = useRef<LectureFilter>(EMPTY_FILTER);
   if (route.name === 'upNext') lastFilter.current = route.filter;
 
-  const goUpNext = useCallback(
-    () => go({ name: 'upNext', filter: lastFilter.current }),
-    [go],
-  );
+  const goUpNext = useCallback(() => go({ name: 'upNext', filter: lastFilter.current }), [go]);
   const goSubjects = useCallback(() => go({ name: 'subjects' }), [go]);
   const goSettings = useCallback(() => go({ name: 'settings' }), [go]);
+  const goSchedule = useCallback(() => go({ name: 'schedule', week: null }), [go]);
+  const goStats = useCallback(() => go({ name: 'stats' }), [go]);
   const openSubject = useCallback((id: Id) => go({ name: 'subject', id }), [go]);
+  const openLecture = useCallback((id: Id) => go({ name: 'lecture', id }), [go]);
   const setFilter = useCallback(
     // `replace`, ne `go` — jinak by každé napsané písmeno bylo krokem v historii.
     (filter: LectureFilter) => replace({ name: 'upNext', filter }),
@@ -86,6 +119,20 @@ function Shell() {
     setNewLecture({ preferredSubjectId: ids.length === 1 ? (ids[0] ?? null) : null });
   }, []);
 
+  // „g“ a písmeno: rychlý skok mezi obrazovkami, jako v Gmailu nebo na GitHubu.
+  const [gPending, setGPending] = useState(false);
+  useEffect(() => {
+    if (!gPending) return undefined;
+    const timer = window.setTimeout(() => setGPending(false), 1200);
+    return () => window.clearTimeout(timer);
+  }, [gPending]);
+
+  const jump = (target: () => void) => () => {
+    if (!gPending) return;
+    setGPending(false);
+    target();
+  };
+
   // V detailu předmětu patří „n“ detailu (přidává rovnou do něj), jinde aplikaci.
   const detailOwnsN = route.name === 'subject';
   useHotkeys(
@@ -95,6 +142,10 @@ function Shell() {
         if (route.name !== 'upNext') goUpNext();
         setFocusSearch(true);
       },
+      g: () => setGPending(true),
+      ...(gPending
+        ? { r: jump(goSchedule), c: jump(goUpNext), p: jump(goSubjects), s: jump(goStats), h: jump(goSettings) }
+        : {}),
     },
     newLecture === null,
   );
@@ -104,49 +155,73 @@ function Shell() {
       filter={route.name === 'upNext' ? route.filter : lastFilter.current}
       onFilterChange={setFilter}
       onOpenSubject={openSubject}
+      onOpenLecture={openLecture}
+      onOpenSchedule={goSchedule}
       onNewLecture={openNewLecture}
       onGoToSubjects={goSubjects}
       focusSearch={focusSearch}
       onSearchFocused={onSearchFocused}
+      keyboardActive={newLecture === null && route.name === 'upNext'}
     />
   );
-
-  const detail = (id: Id) => (
-    <SubjectDetailPanel
-      key={id}
-      subjectId={id}
-      onBack={wide ? goUpNext : back}
-      showBack={!wide}
-      hotkeysActive={newLecture === null}
-    />
-  );
-
-  const settings = <SettingsPanel themeChoice={theme.choice} onThemeChange={theme.setChoice} />;
 
   const subjectsList = (
     <SubjectsPanel selectedId={route.name === 'subject' ? route.id : null} onSelect={openSubject} />
   );
 
-  let content: ReactNode;
-  if (wide) {
-    // Vlevo vždy předměty, vpravo detail nebo „Co mě čeká“ — pravý sloupec nikdy nezeje prázdnotou.
-    content = (
-      <div className="grid h-full grid-cols-[minmax(20rem,26rem)_1fr]">
-        <div className="min-h-0 overflow-hidden border-r border-line">{subjectsList}</div>
-        <div className="min-h-0 overflow-hidden">
-          {route.name === 'subject' ? detail(route.id) : route.name === 'settings' ? settings : upNext}
-        </div>
-      </div>
-    );
-  } else if (route.name === 'subject') {
-    content = detail(route.id);
-  } else if (route.name === 'subjects') {
-    content = subjectsList;
-  } else if (route.name === 'settings') {
-    content = settings;
-  } else {
-    content = upNext;
+  let main: ReactNode;
+  switch (route.name) {
+    case 'subject':
+      main = (
+        <SubjectDetailPanel
+          key={route.id}
+          subjectId={route.id}
+          onBack={() => back({ name: 'subjects' })}
+          onOpenLecture={openLecture}
+          showBack={!wide}
+          hotkeysActive={newLecture === null}
+        />
+      );
+      break;
+    case 'lecture':
+      main = (
+        <LectureDetailPanel
+          lectureId={route.id}
+          onBack={() => back({ name: 'upNext', filter: lastFilter.current })}
+          onOpenLecture={(id) => replace({ name: 'lecture', id })}
+          onOpenSubject={openSubject}
+          showBack
+        />
+      );
+      break;
+    case 'schedule':
+      main = (
+        <SchedulePanel
+          week={route.week}
+          onWeekChange={(week) => replace({ name: 'schedule', week })}
+          onOpenLecture={openLecture}
+          onOpenSubject={openSubject}
+          wide={wide}
+        />
+      );
+      break;
+    case 'stats':
+      main = <StatsPanel onOpenSubject={openSubject} />;
+      break;
+    case 'settings':
+      main = <SettingsPanel themeChoice={theme.choice} onThemeChange={theme.setChoice} />;
+      break;
+    case 'subjects':
+      main = wide ? upNext : subjectsList;
+      break;
+    case 'upNext':
+      main = upNext;
+      break;
   }
+
+  // Rozvrh, statistiky a nastavení potřebují šířku; ostatní mají vlevo seznam předmětů.
+  const fullWidth = route.name === 'schedule' || route.name === 'stats' || route.name === 'settings';
+  const section = sectionOf(route);
 
   return (
     <div className="flex h-dvh flex-col">
@@ -155,8 +230,14 @@ function Shell() {
         <h1 className="min-w-0 flex-1 truncate text-base font-semibold">Přehled přednášek</h1>
         {wide && (
           <nav className="flex items-center gap-1" aria-label="Hlavní navigace">
-            <HeaderTab active={route.name === 'upNext' || route.name === 'subjects'} onClick={goUpNext} badge={dueCount}>
+            <HeaderTab active={section === 'upNext' || (section === 'subjects' && route.name === 'subjects')} onClick={goUpNext} badge={dueCount}>
               Co mě čeká
+            </HeaderTab>
+            <HeaderTab active={section === 'schedule'} onClick={goSchedule}>
+              Rozvrh
+            </HeaderTab>
+            <HeaderTab active={section === 'stats'} onClick={goStats}>
+              Statistiky
             </HeaderTab>
           </nav>
         )}
@@ -173,15 +254,35 @@ function Shell() {
 
       <UpdatePrompt />
 
-      <main className="min-h-0 flex-1">{content}</main>
+      <main className="min-h-0 flex-1">
+        {wide && !fullWidth ? (
+          <div className="grid h-full grid-cols-[minmax(20rem,26rem)_1fr]">
+            <div className="min-h-0 overflow-hidden border-r border-line">{subjectsList}</div>
+            <div className="min-h-0 overflow-hidden">{main}</div>
+          </div>
+        ) : (
+          main
+        )}
+      </main>
 
       {!wide && (
-        <BottomNav
-          route={route}
-          dueCount={dueCount}
-          onUpNext={goUpNext}
-          onSubjects={goSubjects}
-        />
+        <nav
+          aria-label="Hlavní navigace"
+          className="grid shrink-0 grid-cols-4 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)]"
+        >
+          <BottomTab active={section === 'upNext'} onClick={goUpNext} icon={<Inbox size={21} />} badge={dueCount}>
+            Čeká
+          </BottomTab>
+          <BottomTab active={section === 'schedule'} onClick={goSchedule} icon={<CalendarDays size={21} />}>
+            Rozvrh
+          </BottomTab>
+          <BottomTab active={section === 'subjects'} onClick={goSubjects} icon={<BookOpen size={21} />}>
+            Předměty
+          </BottomTab>
+          <BottomTab active={section === 'stats'} onClick={goStats} icon={<BarChart3 size={21} />}>
+            Statistiky
+          </BottomTab>
+        </nav>
       )}
 
       {newLecture !== null && (
@@ -192,36 +293,6 @@ function Shell() {
         />
       )}
     </div>
-  );
-}
-
-function BottomNav({
-  route,
-  dueCount,
-  onUpNext,
-  onSubjects,
-}: {
-  route: Route;
-  dueCount: number;
-  onUpNext: () => void;
-  onSubjects: () => void;
-}) {
-  return (
-    <nav
-      aria-label="Hlavní navigace"
-      className="grid shrink-0 grid-cols-2 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)]"
-    >
-      <BottomTab active={route.name === 'upNext'} onClick={onUpNext} icon={<Inbox size={21} />} badge={dueCount}>
-        Co mě čeká
-      </BottomTab>
-      <BottomTab
-        active={route.name === 'subjects' || route.name === 'subject'}
-        onClick={onSubjects}
-        icon={<BookOpen size={21} />}
-      >
-        Předměty
-      </BottomTab>
-    </nav>
   );
 }
 
@@ -260,12 +331,12 @@ function BottomTab({
 function HeaderTab({
   active,
   onClick,
-  badge,
+  badge = 0,
   children,
 }: {
   active: boolean;
   onClick: () => void;
-  badge: number;
+  badge?: number;
   children: ReactNode;
 }) {
   return (

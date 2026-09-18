@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 
-export type HotkeyHandlers = Partial<Record<string, (event: KeyboardEvent) => void>>;
+/** Handler vrátí `false`, když klávesu nechce — pak zůstane výchozí chování prohlížeče. */
+export type HotkeyHandlers = Partial<Record<string, (event: KeyboardEvent) => void | boolean>>;
 
 /** Píše zrovna uživatel do pole? Pak zkratky mlčí, jinak by „n“ nešlo napsat. */
 function isTyping(target: EventTarget | null): boolean {
@@ -33,8 +34,8 @@ export function useHotkeys(handlers: HotkeyHandlers, enabled = true): void {
 
       const handler = ref.current[event.key];
       if (handler === undefined) return;
+      if (handler(event) === false) return;
       event.preventDefault();
-      handler(event);
     };
 
     window.addEventListener('keydown', onKeyDown);

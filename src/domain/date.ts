@@ -75,6 +75,12 @@ export function formatCsDate(date: IsoDate): string {
   return `${Number(p[2])}. ${Number(p[1])}. ${p[0]}`;
 }
 
+/** Den a měsíc: `15. 9.` */
+export function formatCsDayMonth(date: IsoDate): string {
+  const p = date.split('-');
+  return `${Number(p[2])}. ${Number(p[1])}.`;
+}
+
 /** Krátký formát pro seznamy: `po 15. 9.` */
 export function formatCsShort(date: IsoDate): string {
   const p = date.split('-');

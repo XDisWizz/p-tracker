@@ -2,7 +2,8 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
 import { subjectsRepo } from '../db/subjects';
 import { lecturesRepo } from '../db/lectures';
-import type { Id, Lecture, Subject } from '../domain/types';
+import { scheduleRepo, slotsRepo, termsRepo } from '../db/schedule';
+import type { Id, Lecture, ScheduleSlot, Subject, Term } from '../domain/types';
 
 /**
  * Reaktivní čtení z databáze.
@@ -17,6 +18,9 @@ import type { Id, Lecture, Subject } from '../domain/types';
 
 export const subjects = subjectsRepo(db);
 export const lectures = lecturesRepo(db);
+export const slots = slotsRepo(db);
+export const terms = termsRepo(db);
+export const schedule = scheduleRepo(db);
 
 export function useSubjects(includeArchived = false): Subject[] | undefined {
   return useLiveQuery(() => subjects.list({ includeArchived }), [includeArchived]);
@@ -35,4 +39,23 @@ export function useSubjectLectures(subjectId: Id | null): Lecture[] | undefined 
     () => (subjectId === null ? Promise.resolve([]) : lectures.listBySubject(subjectId)),
     [subjectId],
   );
+}
+
+export function useLecture(id: Id | null): Lecture | null | undefined {
+  return useLiveQuery(async () => (id === null ? null : ((await lectures.get(id)) ?? null)), [id]);
+}
+
+export function useSlots(): ScheduleSlot[] | undefined {
+  return useLiveQuery(() => slots.listAll(), []);
+}
+
+export function useSubjectSlots(subjectId: Id | null): ScheduleSlot[] | undefined {
+  return useLiveQuery(
+    () => (subjectId === null ? Promise.resolve([]) : slots.listBySubject(subjectId)),
+    [subjectId],
+  );
+}
+
+export function useTerms(): Term[] | undefined {
+  return useLiveQuery(() => terms.list(), []);
 }

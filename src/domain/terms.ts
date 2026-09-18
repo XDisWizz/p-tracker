@@ -1,5 +1,5 @@
 import { isValidIsoDate } from './date';
-import type { IsoDate, TermInput } from './types';
+import type { IsoDate, Subject, Term, TermInput } from './types';
 import { teachingWeekCount } from './schedule';
 
 /**
@@ -52,4 +52,20 @@ export function validateTerm(input: TermInput): string | null {
 /** Seřazené a bez duplicit — volno se zadává ručně a pořadí nikoho nezajímá. */
 export function normalizeSkipDates(dates: readonly IsoDate[]): IsoDate[] {
   return [...new Set(dates.filter(isValidIsoDate))].sort();
+}
+
+/**
+ * Semestry z databáze doplněné o předvolby pro semestry předmětů, které v ní
+ * ještě nejsou. Rozvrh tak ukazuje sudé a liché týdny i svátky hned, ne až
+ * po první synchronizaci přednášek, která předvolbu uloží.
+ */
+export function withPresets(terms: readonly Term[], subjects: readonly Subject[]): Term[] {
+  const known = new Set(terms.map((t) => t.id));
+  const out = [...terms];
+  for (const id of new Set(subjects.map((s) => s.term))) {
+    if (known.has(id)) continue;
+    const preset = termPreset(id);
+    if (preset !== undefined) out.push({ ...preset, createdAt: '', updatedAt: '', deletedAt: null });
+  }
+  return out;
 }

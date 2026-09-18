@@ -45,6 +45,10 @@ describe('round-trip adresy', () => {
     ['seznam předmětů', { name: 'subjects' }],
     ['detail předmětu', { name: 'subject', id: '3f1c-uuid' }],
     ['nastavení', { name: 'settings' }],
+    ['statistiky', { name: 'stats' }],
+    ['rozvrh', { name: 'schedule', week: null }],
+    ['rozvrh konkrétního týdne', { name: 'schedule', week: '2026-09-21' }],
+    ['detail přednášky', { name: 'lecture', id: 'abc-123' }],
   ];
 
   for (const [label, route] of cases) {
@@ -56,5 +60,11 @@ describe('round-trip adresy', () => {
   it('prázdný filtr dává čistou adresu', () => {
     expect(buildHash(upNext())).toBe('#/');
     expect(filterToSearch(EMPTY_FILTER)).toBe('');
+  });
+});
+
+describe('rozvrh v adrese', () => {
+  it('nesmyslný týden ignoruje', () => {
+    expect(parseHash('#/rozvrh?t=zitra')).toEqual({ name: 'schedule', week: null });
   });
 });

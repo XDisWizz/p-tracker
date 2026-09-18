@@ -1,4 +1,4 @@
-import { BookOpen, ExternalLink, FileType2, Link2, Pencil, StickyNote, Trash2 } from 'lucide-react';
+import { BookOpen, ExternalLink, FileType2, Link2, NotebookPen, Pencil, StickyNote, Trash2 } from 'lucide-react';
 import { LECTURE_STATUSES } from '../domain/types';
 import type { Lecture, LectureStatus } from '../domain/types';
 import { STATUS_META } from '../domain/status';
@@ -22,7 +22,15 @@ interface LectureRowProps {
    */
   onSetStatus: (status: LectureStatus, source: 'badge' | 'menu') => void;
   onEdit: () => void;
+  /** Otevře detail se zápisky. Bez něj klepnutí na řádek otevře úpravu údajů. */
+  onOpen?: (() => void) | undefined;
   onDelete: () => void;
+  /** Datum je v budoucnu — řádek se ztlumí, aby minulost a dluh vynikly. */
+  upcoming?: boolean;
+  /** Přednáška je dnes. */
+  isToday?: boolean;
+  /** Vybraná klávesnicí (j/k). */
+  selected?: boolean;
 }
 
 export function LectureRow({
@@ -32,22 +40,36 @@ export function LectureRow({
   onOpenSubject,
   onSetStatus,
   onEdit,
+  onOpen,
   onDelete,
+  upcoming = false,
+  isToday = false,
+  selected = false,
 }: LectureRowProps) {
   const hasNote = lecture.note.trim().length > 0;
+  const hasNotes = lecture.summary.trim() !== '' || lecture.focus.trim() !== '';
   const hasUrl = lecture.url !== null && lecture.url !== '';
 
   return (
-    <li className="flex items-center gap-2 rounded-xl bg-surface px-2 py-1.5 ring-1 ring-line">
+    <li
+      data-lecture-id={lecture.id}
+      aria-current={selected ? 'true' : undefined}
+      className={cx(
+        'flex items-center gap-2 rounded-xl px-2 py-1.5',
+        selected ? 'bg-accent-soft ring-2 ring-accent' : 'bg-surface',
+        !selected && (isToday ? 'ring-2 ring-accent/60' : 'ring-1 ring-line'),
+        upcoming && !selected && 'opacity-60',
+      )}
+    >
       <span className="w-7 shrink-0 text-center text-sm font-semibold tabular-nums text-muted">
         {lecture.number}
       </span>
 
       <button
         type="button"
-        onClick={onEdit}
+        onClick={onOpen ?? onEdit}
         className="min-w-0 flex-1 py-1 text-left"
-        aria-label={`Upravit ${lectureDisplayTitle(lecture)}`}
+        aria-label={`${onOpen !== undefined ? 'Otevřít' : 'Upravit'} ${lectureDisplayTitle(lecture)}`}
       >
         <div className="flex min-w-0 items-center gap-2">
           {subjectLabel !== undefined && (
@@ -66,6 +88,12 @@ export function LectureRow({
         </div>
 
         <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted">
+          {isToday && <span className="font-semibold text-accent">dnes</span>}
+          {hasNotes && (
+            <span className="inline-flex items-center gap-0.5 text-ink" title="Má zápisky">
+              <NotebookPen size={12} aria-hidden /> zápis
+            </span>
+          )}
           {lecture.date !== null && (
             <span className="tabular-nums">
               {formatCsShort(lecture.date)}

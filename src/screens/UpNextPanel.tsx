@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { CheckCircle2, Plus, SearchX } from 'lucide-react';
 import {
   browseLectures,
@@ -8,13 +8,15 @@ import {
   EMPTY_FILTER,
   type LectureFilter,
 } from '../domain/filter';
-import { relativeDays, todayIso } from '../domain/date';
+import { addDays, relativeDays, todayIso } from '../domain/date';
 import { isPending } from '../domain/status';
 import { plural } from '../domain/plural';
 import type { Id, Lecture, Subject } from '../domain/types';
 import { useAllLectures, useSubjects } from '../hooks/useLiveData';
 import { useLectureActions } from '../hooks/useLectureActions';
+import { useListKeyboard } from '../hooks/useListKeyboard';
 import { BackupReminder } from '../components/BackupReminder';
+import { NowNextCard } from '../components/NowNextCard';
 import { FilterBar } from '../components/FilterBar';
 import { LectureRow } from '../components/LectureRow';
 import { Button } from '../components/ui/Button';
@@ -24,11 +26,15 @@ interface UpNextPanelProps {
   filter: LectureFilter;
   onFilterChange: (filter: LectureFilter) => void;
   onOpenSubject: (id: Id) => void;
+  onOpenLecture: (id: Id) => void;
+  onOpenSchedule: () => void;
   onNewLecture: () => void;
   onGoToSubjects: () => void;
   /** Požadavek zaměřit hledání (klávesa „/“). Panel ho po splnění potvrdí. */
   focusSearch: boolean;
   onSearchFocused: () => void;
+  /** Reagovat na j/k/Enter/1–5? Jen když je obrazovka vidět a není otevřený jiný dialog. */
+  keyboardActive: boolean;
 }
 
 /**
@@ -39,15 +45,19 @@ export function UpNextPanel({
   filter,
   onFilterChange,
   onOpenSubject,
+  onOpenLecture,
+  onOpenSchedule,
   onNewLecture,
   onGoToSubjects,
   focusSearch,
   onSearchFocused,
+  keyboardActive,
 }: UpNextPanelProps) {
   const subjects = useSubjects();
   const lectures = useAllLectures();
   const actions = useLectureActions();
   const searchRef = useRef<HTMLInputElement>(null);
+  const [showAllUpcoming, setShowAllUpcoming] = useState(false);
 
   useEffect(() => {
     if (!focusSearch) return;
@@ -65,6 +75,27 @@ export function UpNextPanel({
     [lectures, subjects, filter],
   );
 
+  const today = todayIso();
+  const keyboardOrder = useMemo(() => {
+    if (filter.statuses.length > 0) return items;
+    const groups = groupByDue(items, today);
+    const weekAhead = addDays(today, 7);
+    const upcoming = showAllUpcoming
+      ? groups.upcoming
+      : groups.upcoming.filter((l) => l.date !== null && l.date <= weekAhead);
+    return [...groups.due, ...upcoming, ...groups.undated];
+  }, [items, filter.statuses.length, today, showAllUpcoming]);
+
+  const selectedId = useListKeyboard({
+    lectures: keyboardOrder,
+    active: keyboardActive,
+    onOpen: (lecture) => onOpenLecture(lecture.id),
+    onSetStatus: (lecture, status) => {
+      const code = subjectById.get(lecture.subjectId)?.code ?? '';
+      void actions.setStatus(lecture, status, { announce: true, context: code });
+    },
+  });
+
   const tags = useMemo(() => {
     const visible = new Set((subjects ?? []).map((s) => s.id));
     return collectTags((lectures ?? []).filter((l) => visible.has(l.subjectId)));
@@ -72,7 +103,6 @@ export function UpNextPanel({
 
   if (subjects === undefined || lectures === undefined) return null;
 
-  const today = todayIso();
   const filtering = isFilterActive(filter);
   const byStatusChoice = filter.statuses.length > 0;
 
@@ -90,7 +120,11 @@ export function UpNextPanel({
         }
         dateHint={lecture.date === null ? undefined : relativeDays(lecture.date, today)}
         onOpenSubject={() => onOpenSubject(lecture.subjectId)}
+        onOpen={() => onOpenLecture(lecture.id)}
         onEdit={() => actions.edit(lecture)}
+        isToday={lecture.date === today}
+        selected={lecture.id === selectedId}
+        upcoming={lecture.date !== null && lecture.date > today}
         onDelete={() => void actions.remove(lecture, code)}
         onSetStatus={(status) =>
           // Tady se hláška s „Zpět“ hodí i u odznaku: přednáška, která přestane
@@ -106,6 +140,11 @@ export function UpNextPanel({
 
   const groups = groupByDue(items, today);
   const oldestDue = groups.due[0];
+  // Z rozvrhu vznikají přednášky na celý semestr dopředu — ukázat jen týden, zbytek na požádání.
+  const weekAhead = addDays(today, 7);
+  const soon = groups.upcoming.filter((l) => l.date !== null && l.date <= weekAhead);
+  const visibleUpcoming = showAllUpcoming ? groups.upcoming : soon;
+  const hiddenUpcoming = groups.upcoming.length - visibleUpcoming.length;
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -124,6 +163,8 @@ export function UpNextPanel({
             </Button>
           )}
         </div>
+
+        {!filtering && <NowNextCard onOpenLecture={onOpenLecture} onOpenSchedule={onOpenSchedule} />}
 
         <BackupReminder />
 
@@ -166,9 +207,18 @@ export function UpNextPanel({
             <Section title="K zpracování" count={groups.due.length}>
               {groups.due.map(renderRow)}
             </Section>
-            <Section title="Nadcházející" count={groups.upcoming.length}>
-              {groups.upcoming.map(renderRow)}
+            <Section title={showAllUpcoming ? 'Nadcházející' : 'Příštích 7 dní'} count={visibleUpcoming.length}>
+              {visibleUpcoming.map(renderRow)}
             </Section>
+            {hiddenUpcoming > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowAllUpcoming(true)}
+                className="-mt-3 inline-flex min-h-11 items-center self-start text-sm text-muted hover:text-ink"
+              >
+                Ukázat i dalších {hiddenUpcoming} naplánovaných
+              </button>
+            )}
             <Section title="Bez data" count={groups.undated.length}>
               {groups.undated.map(renderRow)}
             </Section>
@@ -190,7 +240,7 @@ function summaryLine(
 ): string {
   if (filtering) return `${total} ${plural(total, 'výsledek', 'výsledky', 'výsledků')}`;
   if (total === 0) return 'Vše zpracováno';
-  if (dueCount === 0) return `Nic po termínu · ${total} naplánováno dopředu`;
+  if (dueCount === 0) return 'Nic po termínu — všechno odpřednášené máš zpracované';
   const oldestDate = oldestDue?.date ?? null;
   const oldest = oldestDate === null ? '' : ` · nejstarší ${relativeDays(oldestDate, today)}`;
   return `${dueCount} ${plural(dueCount, 'přednáška čeká', 'přednášky čekají', 'přednášek čeká')}${oldest}`;

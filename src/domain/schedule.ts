@@ -47,6 +47,21 @@ export const PARITY_LABELS: Record<WeekParity, string> = {
   even: 'sudé týdny',
 };
 
+/**
+ * Obvyklé vyučovací bloky, ze kterých jde rozvrh naklikat bez psaní časů.
+ * Odpovídají běžnému členění výuky na VŠB (90 minut, 15 minut přestávka);
+ * když nějaká hodina začíná jinak, čas jde zadat ručně.
+ */
+export const TEACHING_BLOCKS: ReadonlyArray<{ start: TimeOfDay; end: TimeOfDay }> = [
+  { start: '07:15', end: '08:45' },
+  { start: '09:00', end: '10:30' },
+  { start: '10:45', end: '12:15' },
+  { start: '12:30', end: '14:00' },
+  { start: '14:15', end: '15:45' },
+  { start: '16:00', end: '17:30' },
+  { start: '17:45', end: '19:15' },
+];
+
 /* ---------- čas ---------- */
 
 const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
