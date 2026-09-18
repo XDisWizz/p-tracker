@@ -8,6 +8,8 @@ export interface LectureFilter {
   tags: readonly string[];
   /** Fulltext přes název, poznámku, zápisky, přepis, tagy, přednášejícího a předmět. */
   query: string;
+  /** Hledat i v předmětech z minulých semestrů. */
+  includeArchived: boolean;
 }
 
 export const EMPTY_FILTER: LectureFilter = {
@@ -15,6 +17,7 @@ export const EMPTY_FILTER: LectureFilter = {
   statuses: [],
   tags: [],
   query: '',
+  includeArchived: false,
 };
 
 export function isFilterActive(filter: LectureFilter): boolean {
@@ -22,13 +25,14 @@ export function isFilterActive(filter: LectureFilter): boolean {
     filter.subjectIds.length > 0 ||
     filter.statuses.length > 0 ||
     filter.tags.length > 0 ||
-    filter.query.trim().length > 0
+    filter.query.trim().length > 0 ||
+    filter.includeArchived
   );
 }
 
 /** Počet zapnutých omezení mimo fulltext — číslo na tlačítku „Filtry“. */
 export function countFilterChips(filter: LectureFilter): number {
-  return filter.subjectIds.length + filter.statuses.length + filter.tags.length;
+  return filter.subjectIds.length + filter.statuses.length + filter.tags.length + (filter.includeArchived ? 1 : 0);
 }
 
 /**
@@ -134,7 +138,8 @@ export function compareForUpNext(a: Lecture, b: Lecture): number {
  * „co mám dohnat“. Jakmile uživatel stav zvolí, dostane přesně ty stavy.
  *
  * Zobrazují se jen přednášky předmětů předaných v `subjects`, které nejsou
- * archivované ani smazané. Minulý semestr tak nestraší v aktuálním přehledu.
+ * smazané, a archivované jen na výslovné přání. Minulý semestr tak nestraší
+ * v aktuálním přehledu, ale dohledat v něm jde.
  */
 export function browseLectures(
   lectures: readonly Lecture[],
@@ -142,14 +147,14 @@ export function browseLectures(
   filter: LectureFilter,
 ): Lecture[] {
   const visible = new Set(
-    subjects.filter((s) => !s.archived && s.deletedAt === null).map((s) => s.id),
+    subjects.filter((s) => (filter.includeArchived || !s.archived) && s.deletedAt === null).map((s) => s.id),
   );
   const effective: LectureFilter =
     filter.statuses.length === 0 ? { ...filter, statuses: PENDING_STATUSES } : filter;
 
   return filterLectures(lectures, subjects, effective)
     .filter((l) => visible.has(l.subjectId))
-    .sort(compareForUpNext);
+    .toSorted(compareForUpNext);
 }
 
 export interface DueGroups {
@@ -178,7 +183,7 @@ export function collectTags(lectures: readonly Lecture[]): string[] {
     if (lecture.deletedAt !== null) continue;
     for (const tag of lecture.tags) set.add(tag);
   }
-  return [...set].sort((a, b) => a.localeCompare(b, 'cs'));
+  return [...set].toSorted((a, b) => a.localeCompare(b, 'cs'));
 }
 
 /** Přepne hodnotu v poli — pro čipy ve filtru. */

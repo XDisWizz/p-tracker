@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { lectures as lecturesRepo } from './useLiveData';
 import { suggestAutoUpdates } from '../domain/notes';
 import type { Lecture, LecturePatch } from '../domain/types';
@@ -33,8 +33,12 @@ export function useLectureNotes(lecture: Lecture): {
   const [state, setState] = useState<SaveState>('saved');
   const pending = useRef<Partial<NoteDraft>>({});
   const timer = useRef<number | null>(null);
+  // Aktuální podoba přednášky pro výpočet automatických změn stavu v okamžiku
+  // uložení. Aktualizuje se v efektu, ne během vykreslování.
   const latest = useRef(lecture);
-  latest.current = lecture;
+  useLayoutEffect(() => {
+    latest.current = lecture;
+  }, [lecture]);
 
   const flush = useCallback(async (): Promise<void> => {
     if (timer.current !== null) {
@@ -46,8 +50,9 @@ export function useLectureNotes(lecture: Lecture): {
     pending.current = {};
     setState('saving');
     try {
-      const auto = suggestAutoUpdates(latest.current, patch);
-      await lecturesRepo.update(latest.current.id, { ...patch, ...auto });
+      const target = latest.current;
+      const auto = suggestAutoUpdates(target, patch);
+      await lecturesRepo.update(target.id, { ...patch, ...auto });
       setState(Object.keys(pending.current).length > 0 ? 'pending' : 'saved');
     } catch (error) {
       // Neuložené vrátit do fronty, ať se při dalším pokusu neztratí.

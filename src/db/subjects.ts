@@ -11,7 +11,7 @@ export function subjectsRepo(db: StudiumDB) {
       return all
         .filter((s) => s.deletedAt === null)
         .filter((s) => options.includeArchived === true || !s.archived)
-        .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, 'cs'));
+        .toSorted((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, 'cs'));
     },
 
     /** Včetně archivovaných i smazaných — pro export a diagnostiku. */
@@ -93,14 +93,32 @@ export function subjectsRepo(db: StudiumDB) {
       return this.update(id, { archived }, now);
     },
 
-    /** Trvale odstraní tombstones starší než `days`. Volá se ručně z nastavení. */
-    async purgeDeleted(days: number, now: Date = new Date()): Promise<number> {
-      const cutoff = new Date(now.getTime() - days * 86_400_000).toISOString();
-      const stale = (await db.subjects.toArray()).filter(
-        (s) => s.deletedAt !== null && s.deletedAt < cutoff,
-      );
-      await db.subjects.bulkDelete(stale.map((s) => s.id));
-      return stale.length;
+    /**
+     * Posune předmět v seznamu o jedno místo. Pořadí se přitom přečísluje
+     * souvisle od nuly — po importech a mazání v něm můžou být díry a duplicity,
+     * a prosté prohození dvou čísel by pak nic neudělalo.
+     */
+    async move(id: Id, direction: -1 | 1, now: string = nowIso()): Promise<void> {
+      await db.transaction('rw', db.subjects, async () => {
+        const target = await db.subjects.get(id);
+        if (target === undefined) return;
+        // Jen mezi předměty, které jsou vidět spolu — jinak by posun přes skrytý
+        // archivovaný předmět vypadal, že nic neudělal.
+        const ordered = (await db.subjects.toArray())
+          .filter((s) => s.deletedAt === null && s.archived === target.archived)
+          .toSorted((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, 'cs'));
+        const from = ordered.findIndex((s) => s.id === id);
+        const to = from + direction;
+        if (from === -1 || to < 0 || to >= ordered.length) return;
+        const [moved] = ordered.splice(from, 1);
+        if (moved === undefined) return;
+        ordered.splice(to, 0, moved);
+        const changed = ordered
+          .map((subject, index) => ({ subject, index }))
+          .filter(({ subject, index }) => subject.sortOrder !== index)
+          .map(({ subject, index }) => ({ ...subject, sortOrder: index, updatedAt: now }));
+        if (changed.length > 0) await db.subjects.bulkPut(changed);
+      });
     },
   };
 }

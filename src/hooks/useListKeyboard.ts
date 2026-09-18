@@ -25,10 +25,8 @@ export function useListKeyboard({ lectures, active, onOpen, onSetStatus }: ListK
   const index = lectures.findIndex((l) => l.id === selectedId);
   const selected = index === -1 ? undefined : lectures[index];
 
-  // Vybraná přednáška zmizela ze seznamu (třeba po změně stavu) — výběr zrušit.
-  useEffect(() => {
-    if (selectedId !== null && index === -1) setSelectedId(null);
-  }, [selectedId, index]);
+  // Když vybraná přednáška ze seznamu zmizí (třeba po změně stavu), `selected`
+  // je prostě undefined — výběr se nemusí nulovat efektem.
 
   useEffect(() => {
     if (selectedId === null) return;

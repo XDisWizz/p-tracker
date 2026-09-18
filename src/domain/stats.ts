@@ -13,7 +13,7 @@ export function doneDate(lecture: Lecture): IsoDate | null {
     (s): s is string => s !== undefined,
   );
   if (stamps.length === 0) return null;
-  const first = stamps.sort()[0];
+  const first = stamps.toSorted()[0];
   return first === undefined ? null : todayIso(new Date(first));
 }
 
@@ -35,7 +35,7 @@ export function activeWeeks(lectures: readonly Lecture[], today: IsoDate, max: n
   const held = lectures
     .filter((l) => l.deletedAt === null && l.date !== null && l.date <= today)
     .map((l) => l.date as IsoDate)
-    .sort();
+    .toSorted();
   const first = held[0];
   if (first === undefined) return min;
   const span = Math.floor(daysBetween(mondayOf(first), mondayOf(today)) / 7) + 1;
@@ -78,7 +78,7 @@ export function medianLagDays(lectures: readonly Lecture[]): number | null {
       return done === null || l.date === null ? null : Math.max(0, daysBetween(l.date, done));
     })
     .filter((d): d is number => d !== null)
-    .sort((a, b) => a - b);
+    .toSorted((a, b) => a - b);
   if (lags.length === 0) return null;
   const mid = Math.floor(lags.length / 2);
   const value = lags.length % 2 === 1 ? lags[mid] : ((lags[mid - 1] ?? 0) + (lags[mid] ?? 0)) / 2;

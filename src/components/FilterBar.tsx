@@ -143,6 +143,15 @@ export function FilterBar({ filter, onChange, subjects, tags, searchRef }: Filte
             </ChipGroup>
           )}
 
+          <ChipGroup label="Archiv">
+            <Chip
+              pressed={filter.includeArchived}
+              onToggle={() => onChange({ ...filter, includeArchived: !filter.includeArchived })}
+            >
+              Hledat i v archivovaných předmětech
+            </Chip>
+          </ChipGroup>
+
           {chipCount > 0 && (
             <div>
               <Button

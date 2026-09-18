@@ -304,7 +304,7 @@ interface Versioned {
 function canonical(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
   if (isRecord(value)) {
-    const keys = Object.keys(value).sort();
+    const keys = Object.keys(value).toSorted();
     return `{${keys.map((k) => `${JSON.stringify(k)}:${canonical(value[k])}`).join(',')}}`;
   }
   return JSON.stringify(value) ?? 'null';
@@ -397,10 +397,10 @@ export async function exportAll(db: StudiumDB, now: string = nowIso()): Promise<
     format: EXPORT_FORMAT,
     schemaVersion: SCHEMA_VERSION,
     exportedAt: now,
-    subjects: subjects.sort(byId),
-    lectures: lectures.sort(byId),
-    slots: slots.sort(byId),
-    terms: terms.sort(byId),
+    subjects: subjects.toSorted(byId),
+    lectures: lectures.toSorted(byId),
+    slots: slots.toSorted(byId),
+    terms: terms.toSorted(byId),
   };
 }
 

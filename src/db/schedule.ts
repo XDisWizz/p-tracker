@@ -62,7 +62,7 @@ export type SlotsRepo = ReturnType<typeof slotsRepo>;
 export function termsRepo(db: StudiumDB) {
   return {
     async list(): Promise<Term[]> {
-      return (await db.terms.toArray()).filter((t) => t.deletedAt === null).sort((a, b) => (a.id < b.id ? 1 : -1));
+      return (await db.terms.toArray()).filter((t) => t.deletedAt === null).toSorted((a, b) => (a.id < b.id ? 1 : -1));
     },
 
     async get(id: string): Promise<Term | undefined> {
@@ -77,7 +77,7 @@ export function termsRepo(db: StudiumDB) {
       const existing = await db.terms.get(input.id);
       const term: Term = {
         ...input,
-        skipDates: [...new Set(input.skipDates)].sort(),
+        skipDates: [...new Set(input.skipDates)].toSorted(),
         createdAt: existing?.createdAt ?? now,
         updatedAt: now,
         deletedAt: null,

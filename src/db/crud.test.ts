@@ -109,17 +109,6 @@ describe('předměty — měkké mazání', () => {
     const alive = await lectures.listBySubject(subject.id);
     expect(alive.map((l) => l.id)).toEqual([keep.id]);
   });
-
-  it('úklid smaže jen staré tombstones', async () => {
-    const fresh = await subjects.create(subjectInput());
-    const old = await subjects.create(subjectInput());
-    await subjects.softDelete(fresh.id, '2026-09-14T10:00:00.000Z');
-    await subjects.softDelete(old.id, '2026-01-01T10:00:00.000Z');
-
-    const removed = await subjects.purgeDeleted(30, new Date('2026-09-15T10:00:00.000Z'));
-    expect(removed).toBe(1);
-    expect((await subjects.listRaw()).map((s) => s.id)).toEqual([fresh.id]);
-  });
 });
 
 describe('přednášky — CRUD', () => {
@@ -297,5 +286,39 @@ describe('meta', () => {
 
     await meta.set('lastExportAt', null);
     expect(await meta.get('lastExportAt')).toBeNull();
+  });
+});
+
+describe('pořadí předmětů', () => {
+  it('posune předmět nahoru i dolů a pořadí přečísluje souvisle', async () => {
+    const a = await subjects.create(subjectInput({ name: 'A', sortOrder: 5 }));
+    const b = await subjects.create(subjectInput({ name: 'B', sortOrder: 5 }));
+    const c = await subjects.create(subjectInput({ name: 'C', sortOrder: 9 }));
+
+    await subjects.move(c.id, -1);
+    expect((await subjects.list()).map((s) => s.name)).toEqual(['A', 'C', 'B']);
+    expect((await subjects.list()).map((s) => s.sortOrder)).toEqual([0, 1, 2]);
+
+    await subjects.move(a.id, 1);
+    expect((await subjects.list()).map((s) => s.name)).toEqual(['C', 'A', 'B']);
+    void b;
+  });
+
+  it('na okraji seznamu nic neudělá', async () => {
+    const a = await subjects.create(subjectInput({ name: 'A', sortOrder: 0 }));
+    await subjects.move(a.id, -1);
+    expect((await subjects.list()).map((s) => s.name)).toEqual(['A']);
+  });
+});
+
+describe('pořadí a archiv', () => {
+  it('posun přeskočí skryté archivované předměty', async () => {
+    const a = await subjects.create(subjectInput({ name: 'A', sortOrder: 0 }));
+    const hidden = await subjects.create(subjectInput({ name: 'Archiv', sortOrder: 1, archived: true }));
+    const b = await subjects.create(subjectInput({ name: 'B', sortOrder: 2 }));
+    await subjects.move(b.id, -1);
+    expect((await subjects.list()).map((s) => s.name)).toEqual(['B', 'A']);
+    void a;
+    void hidden;
   });
 });

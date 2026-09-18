@@ -73,7 +73,7 @@ describe('medianLagDays', () => {
 });
 
 describe('weekStreak', () => {
-  const bucket = (processed: number) => ({ weekStart: '', processed, held: 0 });
+  const bucket = (count: number) => ({ weekStart: '', processed: count, held: 0 });
 
   it('počítá týdny v řadě od aktuálního', () => {
     expect(weekStreak([bucket(1), bucket(0), bucket(2), bucket(1)])).toBe(2);

@@ -83,7 +83,7 @@ export function SubjectsPanel({ selectedId, onSelect }: SubjectsPanelProps) {
           <EmptyState onCreate={() => void openNew()} showArchived={showArchived} />
         ) : (
           <ul className="flex flex-col gap-2">
-            {subjects.map((subject) => (
+            {subjects.map((subject, index) => (
               <li key={subject.id}>
                 <SubjectCard
                   subject={subject}
@@ -93,6 +93,10 @@ export function SubjectsPanel({ selectedId, onSelect }: SubjectsPanelProps) {
                   onEdit={() => setEditing({ mode: 'edit', subject })}
                   onToggleArchive={() => void handleToggleArchive(subject)}
                   onDelete={() => void handleDelete(subject)}
+                  onMoveUp={index > 0 ? () => void subjectsRepo.move(subject.id, -1) : undefined}
+                  onMoveDown={
+                    index < subjects.length - 1 ? () => void subjectsRepo.move(subject.id, 1) : undefined
+                  }
                 />
               </li>
             ))}

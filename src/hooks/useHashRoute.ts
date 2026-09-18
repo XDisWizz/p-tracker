@@ -35,6 +35,7 @@ const KEY_QUERY = 'q';
 const KEY_SUBJECT = 'p';
 const KEY_STATUS = 's';
 const KEY_TAG = 't';
+const KEY_ARCHIVE = 'a';
 
 function safeDecode(value: string): string {
   try {
@@ -54,6 +55,7 @@ export function filterFromSearch(search: string): LectureFilter {
     // Neznámé stavy se zahodí — adresa je vstup od uživatele, ne důvěryhodná data.
     statuses: unique(params.getAll(KEY_STATUS)).filter(isLectureStatus),
     tags: unique(params.getAll(KEY_TAG)),
+    includeArchived: params.get(KEY_ARCHIVE) === '1',
   };
 }
 
@@ -64,6 +66,7 @@ export function filterToSearch(filter: LectureFilter): string {
   for (const id of filter.subjectIds) params.append(KEY_SUBJECT, id);
   for (const status of filter.statuses) params.append(KEY_STATUS, status);
   for (const tag of filter.tags) params.append(KEY_TAG, tag);
+  if (filter.includeArchived) params.set(KEY_ARCHIVE, '1');
   return params.toString();
 }
 

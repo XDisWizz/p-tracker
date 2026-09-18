@@ -13,6 +13,8 @@ interface AutoTextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> 
 export function AutoTextarea({ maxHeight = 640, className, value, ...rest }: AutoTextareaProps) {
   const ref = useRef<HTMLTextAreaElement>(null);
 
+  // `value` je záměrná závislost: výšku je potřeba přepočítat po každé změně textu.
+  // oxlint-disable-next-line react/exhaustive-deps
   useLayoutEffect(() => {
     const element = ref.current;
     if (element === null) return;

@@ -48,7 +48,7 @@ export function SubjectDetailPanel({
 
   const sortedSlots = useMemo(
     () =>
-      [...(slots ?? [])].sort(
+      [...(slots ?? [])].toSorted(
         (a, b) => a.dayOfWeek - b.dayOfWeek || timeToMinutes(a.start) - timeToMinutes(b.start),
       ),
     [slots],

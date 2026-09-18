@@ -207,7 +207,7 @@ export function occurrencesOn(date: IsoDate, context: ScheduleContext): Occurren
     });
   }
 
-  return out.sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin);
+  return out.toSorted((a, b) => a.startMin - b.startMin || a.endMin - b.endMin);
 }
 
 export interface NowNext {
@@ -302,17 +302,15 @@ export function planLectureSync(
   const live = lectures.filter((l) => l.subjectId === subjectId && l.deletedAt === null);
   const lectureSlots = slots
     .filter((s) => s.subjectId === subjectId && s.deletedAt === null && s.kind === 'lecture')
-    .sort((a, b) => a.dayOfWeek - b.dayOfWeek || timeToMinutes(a.start) - timeToMinutes(b.start));
+    .toSorted((a, b) => a.dayOfWeek - b.dayOfWeek || timeToMinutes(a.start) - timeToMinutes(b.start));
 
-  const targets: Array<{ date: IsoDate; slot: ScheduleSlot }> = [];
-  for (const slot of lectureSlots) {
-    for (const date of slotDates(slot, term)) targets.push({ date, slot });
-  }
-  targets.sort(
-    (a, b) =>
-      (a.date < b.date ? -1 : a.date > b.date ? 1 : 0) ||
-      timeToMinutes(a.slot.start) - timeToMinutes(b.slot.start),
-  );
+  const targets = lectureSlots
+    .flatMap((slot) => slotDates(slot, term).map((date) => ({ date, slot })))
+    .toSorted(
+      (a, b) =>
+        (a.date < b.date ? -1 : a.date > b.date ? 1 : 0) ||
+        timeToMinutes(a.slot.start) - timeToMinutes(b.slot.start),
+    );
 
   const claimed = new Set<Id>();
   const toCreate: Array<{ date: IsoDate; slotId: Id }> = [];
@@ -345,13 +343,12 @@ export function planLectureSync(
 
   // Výsledné pořadí: podle data, nedatované na konec v původním pořadí.
   type Row = { kind: 'existing'; lecture: Lecture } | { kind: 'new'; index: number; date: IsoDate };
+  const dateOf = (row: Row): string => (row.kind === 'new' ? row.date : (row.lecture.date ?? '9999-99-99'));
+  const numberOf = (row: Row): number => (row.kind === 'new' ? Number.MAX_SAFE_INTEGER : row.lecture.number);
   const rows: Row[] = [
     ...live.filter((l) => !removed.has(l.id)).map((lecture): Row => ({ kind: 'existing', lecture })),
     ...toCreate.map((t, index): Row => ({ kind: 'new', index, date: t.date })),
-  ];
-  const dateOf = (row: Row): string => (row.kind === 'new' ? row.date : (row.lecture.date ?? '9999-99-99'));
-  const numberOf = (row: Row): number => (row.kind === 'new' ? Number.MAX_SAFE_INTEGER : row.lecture.number);
-  rows.sort((a, b) => (dateOf(a) < dateOf(b) ? -1 : dateOf(a) > dateOf(b) ? 1 : numberOf(a) - numberOf(b)));
+  ].toSorted((a, b) => (dateOf(a) < dateOf(b) ? -1 : dateOf(a) > dateOf(b) ? 1 : numberOf(a) - numberOf(b)));
 
   const create: PlannedLecture[] = toCreate.map((t) => ({ ...t, number: 0 }));
   const renumber: Array<{ id: Id; number: number }> = [];
@@ -379,7 +376,7 @@ export function previousLecture(lecture: Lecture, lectures: readonly Lecture[]):
   const earlier = lectures
     .filter((l) => l.subjectId === lecture.subjectId && l.deletedAt === null && l.id !== lecture.id)
     .filter((l) => l.number < lecture.number)
-    .sort((a, b) => b.number - a.number);
+    .toSorted((a, b) => b.number - a.number);
   const withNotes = earlier.find((l) => l.summary.trim() !== '' || l.focus.trim() !== '');
   return withNotes ?? earlier[0] ?? null;
 }
@@ -388,7 +385,7 @@ export function nextLectureOf(lecture: Lecture, lectures: readonly Lecture[]): L
   return (
     lectures
       .filter((l) => l.subjectId === lecture.subjectId && l.deletedAt === null && l.number > lecture.number)
-      .sort((a, b) => a.number - b.number)[0] ?? null
+      .toSorted((a, b) => a.number - b.number)[0] ?? null
   );
 }
 
@@ -415,7 +412,7 @@ export function latestNotesBefore(subjectId: Id, date: IsoDate, lectures: readon
           l.date < date &&
           (l.summary.trim() !== '' || l.focus.trim() !== ''),
       )
-      .sort((a, b) => ((a.date ?? '') < (b.date ?? '') ? 1 : -1))[0] ?? null
+      .toSorted((a, b) => ((a.date ?? '') < (b.date ?? '') ? 1 : -1))[0] ?? null
   );
 }
 

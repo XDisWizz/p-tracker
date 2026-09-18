@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   AlertTriangle,
   Download,
@@ -9,11 +9,16 @@ import {
   Share2,
   ShieldCheck,
   Sun,
+  Trash2,
   Upload,
 } from 'lucide-react';
 import { describeLastBackup, isBackupDue } from '../domain/backup';
 import { parseExportText, type ExportFile } from '../db/transfer';
 import { canShareFiles, formatBytes } from '../lib/files';
+import { db } from '../db/db';
+import { CLEANUP_AFTER_DAYS, cleanupRepo, type StaleCounts } from '../db/cleanup';
+import { countOf } from '../domain/plural';
+import { useToast } from '../components/ui/Toast';
 import { useBackupActions, useBackupStatus } from '../hooks/useBackup';
 import { useStorageInfo } from '../hooks/useStorage';
 import type { ThemeChoice } from '../hooks/useTheme';
@@ -35,6 +40,7 @@ export function SettingsPanel({ themeChoice, onThemeChange }: SettingsPanelProps
         <BackupSection />
         <TermsSection />
         <StorageSection />
+        <CleanupSection />
         <AppearanceSection choice={themeChoice} onChange={onThemeChange} />
         <AboutSection />
       </div>
@@ -236,6 +242,56 @@ function AboutSection() {
       <p className="mt-4 text-xs text-muted">
         Žádný účet, žádný server, žádná síťová komunikace. Verze {__APP_VERSION__}.
       </p>
+    </Card>
+  );
+}
+
+function CleanupSection() {
+  const toast = useToast();
+  const [counts, setCounts] = useState<StaleCounts | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    void cleanupRepo(db)
+      .count()
+      .then((c) => active && setCounts(c));
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (counts === null || counts.total === 0) return null;
+
+  return (
+    <Card icon={<Trash2 size={17} />} title="Úklid">
+      <p className="text-sm">
+        {countOf(counts.total, 'smazaný záznam', 'smazané záznamy', 'smazaných záznamů')} starší než {CLEANUP_AFTER_DAYS} dní
+        ({counts.lectures} přednášek, {counts.subjects} předmětů, {counts.slots} hodin rozvrhu).
+      </p>
+      <p className="mt-1 text-xs text-muted">
+        Smazané se drží kvůli tlačítku Zpět a slučování záloh mezi zařízeními. Trvalé odstranění už vrátit nejde;
+        zařízení, se kterým ses měsíc nesynchronizoval, by je po sloučení zálohy vrátilo zpět.
+      </p>
+      <div className="mt-3">
+        <Button
+          variant="danger"
+          disabled={busy}
+          onClick={() => {
+            setBusy(true);
+            void cleanupRepo(db)
+              .purge()
+              .then((removed) => {
+                toast(`Trvale odstraněno: ${countOf(removed.total, 'záznam', 'záznamy', 'záznamů')}`);
+                setCounts({ subjects: 0, lectures: 0, slots: 0, total: 0 });
+              })
+              .finally(() => setBusy(false));
+          }}
+        >
+          <Trash2 size={16} />
+          Trvale odstranit
+        </Button>
+      </div>
     </Card>
   );
 }

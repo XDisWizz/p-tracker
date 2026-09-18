@@ -53,7 +53,8 @@ export function UpNextPanel({
   onSearchFocused,
   keyboardActive,
 }: UpNextPanelProps) {
-  const subjects = useSubjects();
+  // Archivované předměty se načtou jen pro hledání v archivu — běžný přehled je nepotřebuje.
+  const subjects = useSubjects(filter.includeArchived);
   const lectures = useAllLectures();
   const actions = useLectureActions();
   const searchRef = useRef<HTMLInputElement>(null);

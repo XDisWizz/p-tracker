@@ -42,6 +42,7 @@ describe('round-trip adresy', () => {
     ['mezera na konci se při psaní neztratí', upNext({ query: 'limity ' })],
     ['více předmětů a stavů', upNext({ subjectIds: ['a-1', 'b-2'], statuses: ['not_started', 'tested'] })],
     ['tag s čárkou a ampersandem', upNext({ tags: ['a,b', 'x&y'] })],
+    ['včetně archivu', upNext({ includeArchived: true, query: 'derivace' })],
     ['seznam předmětů', { name: 'subjects' }],
     ['detail předmětu', { name: 'subject', id: '3f1c-uuid' }],
     ['nastavení', { name: 'settings' }],

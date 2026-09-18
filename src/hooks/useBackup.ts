@@ -20,7 +20,7 @@ export function useBackupStatus(): BackupState | undefined {
     const created = subjects
       .filter((s) => s.deletedAt === null)
       .map((s) => s.createdAt)
-      .sort();
+      .toSorted();
     return {
       lastExportAt: lastExportAt ?? null,
       snoozedUntil: snoozedUntil ?? null,

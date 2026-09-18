@@ -17,7 +17,7 @@ export function lecturesRepo(db: StudiumDB) {
     /** Živé přednášky jednoho předmětu, seřazené podle pořadového čísla. */
     async listBySubject(subjectId: Id): Promise<Lecture[]> {
       const rows = await db.lectures.where('subjectId').equals(subjectId).toArray();
-      return rows.filter((l) => l.deletedAt === null).sort(compareByNumber);
+      return rows.filter((l) => l.deletedAt === null).toSorted(compareByNumber);
     },
 
     /** Všechny živé přednášky napříč předměty — podklad pro „Co mě čeká“ a filtry. */
@@ -101,15 +101,6 @@ export function lecturesRepo(db: StudiumDB) {
       const lecture = await db.lectures.get(id);
       if (lecture === undefined) return;
       await db.lectures.put({ ...lecture, deletedAt: null, updatedAt: now });
-    },
-
-    async purgeDeleted(days: number, now: Date = new Date()): Promise<number> {
-      const cutoff = new Date(now.getTime() - days * 86_400_000).toISOString();
-      const stale = (await db.lectures.toArray()).filter(
-        (l) => l.deletedAt !== null && l.deletedAt < cutoff,
-      );
-      await db.lectures.bulkDelete(stale.map((l) => l.id));
-      return stale.length;
     },
   };
 }

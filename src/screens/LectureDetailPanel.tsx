@@ -109,7 +109,7 @@ function LectureEditor({
   const previous = useMemo(() => previousLecture(lecture, siblings), [lecture, siblings]);
   const next = useMemo(() => nextLectureOf(lecture, siblings), [lecture, siblings]);
   const prevByNumber = useMemo(
-    () => [...siblings].filter((l) => l.number < lecture.number).sort((a, b) => b.number - a.number)[0] ?? null,
+    () => [...siblings].filter((l) => l.number < lecture.number).toSorted((a, b) => b.number - a.number)[0] ?? null,
     [siblings, lecture.number],
   );
   const colors = SUBJECT_COLOR_CLASSES[subject.color];

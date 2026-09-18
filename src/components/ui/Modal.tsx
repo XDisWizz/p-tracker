@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useEffectEvent, useRef, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { IconButton } from './Button';
 
@@ -31,9 +31,8 @@ export function Modal({ open, title, onClose, children, footer }: ModalProps) {
     if (!open && dialog.open) dialog.close();
   }, [open]);
 
-  // Obsluha se drží v refu, aby se posluchače nepřepojovaly při každém překreslení.
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
+  // Vždy aktuální obsluha, aniž by se posluchače při každém překreslení přepojovaly.
+  const requestClose = useEffectEvent((): void => onClose());
 
   useEffect(() => {
     const dialog = ref.current;
@@ -43,7 +42,7 @@ export function Modal({ open, title, onClose, children, footer }: ModalProps) {
     // zavření na starosti sami, aby o něm věděl i React.
     const onCancel = (event: Event): void => {
       event.preventDefault();
-      onCloseRef.current();
+      requestClose();
     };
 
     // Záloha pro případy, kdy se `cancel` nespustí — Escape je vyžadovaná
@@ -53,7 +52,7 @@ export function Modal({ open, title, onClose, children, footer }: ModalProps) {
       if (event.key !== 'Escape' || !dialog.open) return;
       event.preventDefault();
       event.stopPropagation();
-      onCloseRef.current();
+      requestClose();
     };
 
     dialog.addEventListener('cancel', onCancel);

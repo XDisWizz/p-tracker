@@ -243,7 +243,7 @@ function SubjectTable({
     })
     .filter((r) => r.progress.total + r.progress.upcoming > 0)
     // Nejhorší nahoře: tam je potřeba začít.
-    .sort((a, b) => b.progress.pending - a.progress.pending || a.progress.ratio - b.progress.ratio);
+    .toSorted((a, b) => b.progress.pending - a.progress.pending || a.progress.ratio - b.progress.ratio);
 
   if (rows.length === 0) return null;
 

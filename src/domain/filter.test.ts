@@ -237,3 +237,18 @@ describe('hledání v zápiscích', () => {
     expect(filterLectures([after], subjects, filter({ query: 'nove' }))).toHaveLength(1);
   });
 });
+
+describe('hledání v archivu', () => {
+  it('archivovaný předmět je vidět jen se zapnutým přepínačem', () => {
+    const archived = makeSubject({ id: 'stary', archived: true });
+    const lectures = [makeLecture({ id: 'x', subjectId: 'stary', status: 'tested' })];
+    const withArchive = filter({ includeArchived: true, statuses: ['tested'] });
+    expect(browseLectures(lectures, [...subjects, archived], { ...withArchive, includeArchived: false })).toHaveLength(0);
+    expect(browseLectures(lectures, [...subjects, archived], withArchive).map((l) => l.id)).toEqual(['x']);
+  });
+
+  it('přepínač se počítá mezi aktivní filtry', () => {
+    expect(isFilterActive(filter({ includeArchived: true }))).toBe(true);
+    expect(countFilterChips(filter({ includeArchived: true }))).toBe(1);
+  });
+});

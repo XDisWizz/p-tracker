@@ -1,4 +1,4 @@
-import { Archive, ArchiveRestore, ExternalLink, Pencil, Trash2 } from 'lucide-react';
+import { Archive, ArchiveRestore, ArrowDown, ArrowUp, ExternalLink, Pencil, Trash2 } from 'lucide-react';
 import type { Progress } from '../domain/progress';
 import type { Subject } from '../domain/types';
 import { ProgressBar } from './ProgressBar';
@@ -13,6 +13,9 @@ interface SubjectCardProps {
   onEdit: () => void;
   onToggleArchive: () => void;
   onDelete: () => void;
+  /** `undefined` = na okraji seznamu, posun tím směrem nedává smysl. */
+  onMoveUp?: (() => void) | undefined;
+  onMoveDown?: (() => void) | undefined;
 }
 
 export function SubjectCard({
@@ -23,6 +26,8 @@ export function SubjectCard({
   onEdit,
   onToggleArchive,
   onDelete,
+  onMoveUp,
+  onMoveDown,
 }: SubjectCardProps) {
   const colors = SUBJECT_COLOR_CLASSES[subject.color];
 
@@ -95,6 +100,29 @@ export function SubjectCard({
                   }}
                 >
                   Otevřít v LMS
+                </MenuItem>
+              )}
+
+              {onMoveUp !== undefined && (
+                <MenuItem
+                  icon={<ArrowUp size={16} />}
+                  onSelect={() => {
+                    close();
+                    onMoveUp();
+                  }}
+                >
+                  Posunout výš
+                </MenuItem>
+              )}
+              {onMoveDown !== undefined && (
+                <MenuItem
+                  icon={<ArrowDown size={16} />}
+                  onSelect={() => {
+                    close();
+                    onMoveDown();
+                  }}
+                >
+                  Posunout níž
                 </MenuItem>
               )}
 

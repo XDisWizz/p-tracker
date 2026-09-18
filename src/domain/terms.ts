@@ -51,7 +51,7 @@ export function validateTerm(input: TermInput): string | null {
 
 /** Seřazené a bez duplicit — volno se zadává ručně a pořadí nikoho nezajímá. */
 export function normalizeSkipDates(dates: readonly IsoDate[]): IsoDate[] {
-  return [...new Set(dates.filter(isValidIsoDate))].sort();
+  return [...new Set(dates.filter(isValidIsoDate))].toSorted();
 }
 
 /**

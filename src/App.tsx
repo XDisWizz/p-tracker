@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   BarChart3,
   BookOpen,
@@ -97,10 +97,12 @@ function Shell() {
   const [focusSearch, setFocusSearch] = useState(false);
 
   // Filtr si pamatujeme i po odchodu z obrazovky, aby návrat přes záložku nezahodil hledání.
-  const lastFilter = useRef<LectureFilter>(EMPTY_FILTER);
-  if (route.name === 'upNext') lastFilter.current = route.filter;
+  const [rememberedFilter, setRememberedFilter] = useState<LectureFilter>(() =>
+    route.name === 'upNext' ? route.filter : EMPTY_FILTER,
+  );
+  const currentFilter = route.name === 'upNext' ? route.filter : rememberedFilter;
 
-  const goUpNext = useCallback(() => go({ name: 'upNext', filter: lastFilter.current }), [go]);
+  const goUpNext = useCallback(() => go({ name: 'upNext', filter: currentFilter }), [go, currentFilter]);
   const goSubjects = useCallback(() => go({ name: 'subjects' }), [go]);
   const goSettings = useCallback(() => go({ name: 'settings' }), [go]);
   const goSchedule = useCallback(() => go({ name: 'schedule', week: null }), [go]);
@@ -109,15 +111,18 @@ function Shell() {
   const openLecture = useCallback((id: Id) => go({ name: 'lecture', id }), [go]);
   const setFilter = useCallback(
     // `replace`, ne `go` — jinak by každé napsané písmeno bylo krokem v historii.
-    (filter: LectureFilter) => replace({ name: 'upNext', filter }),
+    (filter: LectureFilter) => {
+      setRememberedFilter(filter);
+      replace({ name: 'upNext', filter });
+    },
     [replace],
   );
   const onSearchFocused = useCallback(() => setFocusSearch(false), []);
 
   const openNewLecture = useCallback((): void => {
-    const ids = lastFilter.current.subjectIds;
+    const ids = currentFilter.subjectIds;
     setNewLecture({ preferredSubjectId: ids.length === 1 ? (ids[0] ?? null) : null });
-  }, []);
+  }, [currentFilter]);
 
   // „g“ a písmeno: rychlý skok mezi obrazovkami, jako v Gmailu nebo na GitHubu.
   const [gPending, setGPending] = useState(false);
@@ -152,7 +157,7 @@ function Shell() {
 
   const upNext = (
     <UpNextPanel
-      filter={route.name === 'upNext' ? route.filter : lastFilter.current}
+      filter={currentFilter}
       onFilterChange={setFilter}
       onOpenSubject={openSubject}
       onOpenLecture={openLecture}
@@ -187,7 +192,7 @@ function Shell() {
       main = (
         <LectureDetailPanel
           lectureId={route.id}
-          onBack={() => back({ name: 'upNext', filter: lastFilter.current })}
+          onBack={() => back({ name: 'upNext', filter: currentFilter })}
           onOpenLecture={(id) => replace({ name: 'lecture', id })}
           onOpenSubject={openSubject}
           showBack

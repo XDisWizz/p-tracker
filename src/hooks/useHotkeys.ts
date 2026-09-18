@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useEffectEvent } from 'react';
 
 /** Handler vrátí `false`, když klávesu nechce — pak zůstane výchozí chování prohlížeče. */
 export type HotkeyHandlers = Partial<Record<string, (event: KeyboardEvent) => void | boolean>>;
@@ -20,25 +20,22 @@ function isTyping(target: EventTarget | null): boolean {
  * v poli, a „n“ by jinak otevřelo druhý formulář přes první.
  */
 export function useHotkeys(handlers: HotkeyHandlers, enabled = true): void {
-  // Handlery se drží v refu, aby se posluchač nepřipojoval znovu při každém překreslení.
-  const ref = useRef(handlers);
-  ref.current = handlers;
+  // Vždy aktuální handlery, aniž by se posluchač při každém překreslení odpojoval a znovu připojoval.
+  const onKeyDown = useEffectEvent((event: KeyboardEvent): void => {
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
+    if (isTyping(event.target)) return;
+    if (document.querySelector('dialog[open]') !== null) return;
+
+    const handler = handlers[event.key];
+    if (handler === undefined) return;
+    if (handler(event) === false) return;
+    event.preventDefault();
+  });
 
   useEffect(() => {
     if (!enabled) return undefined;
-
-    const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.ctrlKey || event.metaKey || event.altKey) return;
-      if (isTyping(event.target)) return;
-      if (document.querySelector('dialog[open]') !== null) return;
-
-      const handler = ref.current[event.key];
-      if (handler === undefined) return;
-      if (handler(event) === false) return;
-      event.preventDefault();
-    };
-
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    const listener = (event: KeyboardEvent): void => onKeyDown(event);
+    window.addEventListener('keydown', listener);
+    return () => window.removeEventListener('keydown', listener);
   }, [enabled]);
 }

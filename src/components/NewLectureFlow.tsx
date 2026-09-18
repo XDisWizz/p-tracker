@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { ChevronRight } from 'lucide-react';
 import { nextLectureInput } from '../domain/defaults';
 import type { Id, LectureInput, Subject } from '../domain/types';
@@ -42,24 +43,30 @@ export function NewLectureFlow({ preferredSubjectId, onClose, onGoToSubjects }: 
       : (subjects.find((s) => s.id === preferredSubjectId) ??
         (subjects.length === 1 ? subjects[0] : undefined));
 
-  useEffect(() => {
-    if (draft === null && autoSubject !== undefined) void pick(autoSubject);
-  }, [draft, autoSubject, pick]);
+  // Když je předmět jasný předem, návrh přednášky se odvodí rovnou z databáze —
+  // bez mezikroku s výběrem a bez nastavování stavu v efektu.
+  const autoDraft = useLiveQuery(async (): Promise<Draft | null> => {
+    if (autoSubject === undefined) return null;
+    const existing = await lecturesRepo.listBySubject(autoSubject.id);
+    return { subject: autoSubject, initial: nextLectureInput(autoSubject, existing) };
+  }, [autoSubject]);
 
   if (subjects === undefined) return null;
 
-  if (draft !== null) {
+  const active = draft ?? autoDraft ?? null;
+  if (active !== null) {
     return (
       <LectureForm
         open
-        title={`Nová přednáška · ${draft.subject.code || draft.subject.name}`}
+        key={active.subject.id}
+        title={`Nová přednáška · ${active.subject.code || active.subject.name}`}
         submitLabel="Přidat"
-        initial={draft.initial}
+        initial={active.initial}
         onClose={onClose}
         onSubmit={async (input) => {
           const created = await lecturesRepo.create(input);
           onClose();
-          toast(`Přidána ${created.number}. přednáška (${draft.subject.code || draft.subject.name})`, {
+          toast(`Přidána ${created.number}. přednáška (${active.subject.code || active.subject.name})`, {
             label: 'Zpět',
             run: () => lecturesRepo.softDelete(created.id),
           });

@@ -24,8 +24,8 @@ export function nextLectureInput(
   const highestNumber = live.reduce((max, l) => Math.max(max, l.number), 0);
   const number = highestNumber + 1;
 
-  const previous = [...live].sort((a, b) => b.number - a.number)[0];
-  const lastDated = [...live].filter((l) => l.date !== null).sort((a, b) => b.number - a.number)[0];
+  const previous = [...live].toSorted((a, b) => b.number - a.number)[0];
+  const lastDated = [...live].filter((l) => l.date !== null).toSorted((a, b) => b.number - a.number)[0];
 
   let date: IsoDate = today;
   if (lastDated?.date) {

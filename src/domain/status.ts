@@ -24,7 +24,7 @@ export const STATUS_META: Record<LectureStatus, StatusMeta> = {
 /** Stavy tvořící lineární postup, v pořadí. Bez `skipped`. */
 export const PIPELINE_STATUSES: readonly LectureStatus[] = LECTURE_STATUSES.filter(
   (s) => STATUS_META[s].rank >= 0,
-).sort((a, b) => STATUS_META[a].rank - STATUS_META[b].rank);
+).toSorted((a, b) => STATUS_META[a].rank - STATUS_META[b].rank);
 
 /** Hranice, od které se přednáška počítá jako zpracovaná (progress bar na hlavní obrazovce). */
 export const DONE_THRESHOLD: LectureStatus = 'summary';

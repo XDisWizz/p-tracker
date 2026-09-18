@@ -196,7 +196,7 @@ describe('mergeRecords', () => {
 
   it('shodný záznam není konflikt, i kdyby měl jinak seřazené klíče', () => {
     // Stejná data, jen klíče v opačném pořadí — tak, jak je může vyplivnout cizí nástroj.
-    const reordered = Object.fromEntries(Object.entries(mine).reverse()) as typeof mine;
+    const reordered = Object.fromEntries(Object.entries(mine).toReversed()) as typeof mine;
     const out = mergeRecords([mine], [reordered], 'merge-newer');
     expect(out.conflicts).toBe(0);
     expect(out.diff.unchanged).toBe(1);

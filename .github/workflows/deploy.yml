@@ -29,8 +29,9 @@ jobs:
 
       - run: npm ci
 
-      # Rozbitý kód se nenasadí: nejdřív typy a testy, pak build.
+      # Rozbitý kód se nenasadí: nejdřív typy, lint a testy, pak build.
       - run: npm run typecheck
+      - run: npm run lint
       - run: npm test
 
       - name: Build

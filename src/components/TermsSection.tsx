@@ -21,7 +21,7 @@ export function TermsSection() {
   const termIds = useMemo(() => {
     const ids = new Set((subjects ?? []).map((s) => s.term).filter((t) => t.trim() !== ''));
     for (const t of stored ?? []) ids.add(t.id);
-    return [...ids].sort().reverse();
+    return [...ids].toSorted().toReversed();
   }, [subjects, stored]);
 
   if (subjects === undefined || stored === undefined) return null;
