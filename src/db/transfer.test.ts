@@ -359,3 +359,27 @@ describe('schéma 2: rozvrh a zápisky v záloze', () => {
     expect(plan.terms.added).toBe(1);
   });
 });
+
+describe('schéma 3: termín zkoušky', () => {
+  it('záloha ze schématu 2 projde a předměty dostanou prázdný termín', () => {
+    const legacySubject: Record<string, unknown> = { ...makeSubject({ id: 'bez-terminu' }) };
+    delete legacySubject['examDate'];
+    const result = parseExportFile({
+      format: EXPORT_FORMAT,
+      schemaVersion: 2,
+      exportedAt: '2026-09-01T00:00:00.000Z',
+      subjects: [legacySubject],
+      lectures: [],
+      slots: [],
+      terms: [],
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.file.subjects[0]?.examDate).toBeNull();
+  });
+
+  it('termín zkoušky projde round-tripem', async () => {
+    const file = fileFrom([makeSubject({ id: 's', examDate: '2027-01-20' })], []);
+    await applyImport(db, file, 'replace');
+    expect((await exportAll(db)).subjects[0]?.examDate).toBe('2027-01-20');
+  });
+});

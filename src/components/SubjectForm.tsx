@@ -133,6 +133,17 @@ export function SubjectForm({ open, title, initial, onSubmit, onClose }: Subject
           )}
         </Field>
 
+        <Field label="Termín zkoušky" hint="Nepovinné. Ukáže odpočet a upozorní, když se blíží.">
+          {(id) => (
+            <TextInput
+              id={id}
+              type="date"
+              value={draft.examDate ?? ''}
+              onChange={(event) => setDraft((d) => ({ ...d, examDate: event.target.value || null }))}
+            />
+          )}
+        </Field>
+
         <Field label="Odkaz na LMS" hint="Nepovinné.">
           {(id) => (
             <TextInput

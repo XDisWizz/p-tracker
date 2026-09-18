@@ -4,6 +4,7 @@ import type { Subject } from '../domain/types';
 import { ProgressBar } from './ProgressBar';
 import { Menu, MenuItem, MenuSeparator } from './ui/Menu';
 import { SUBJECT_COLOR_CLASSES, cx } from './tokens';
+import { ExamBadge } from './ExamBadge';
 
 interface SubjectCardProps {
   subject: Subject;
@@ -54,9 +55,12 @@ export function SubjectCard({
           <h3 className="min-w-0 flex-1 truncate font-semibold">{subject.name || 'Bez názvu'}</h3>
         </div>
 
-        <p className="mt-0.5 truncate text-xs text-muted">
-          {subject.term}
-          {subject.archived && ' · archivovaný'}
+        <p className="mt-0.5 flex min-w-0 items-center gap-2 text-xs text-muted">
+          <span className="truncate">
+            {subject.term}
+            {subject.archived && ' · archivovaný'}
+          </span>
+          {subject.examDate !== null && !subject.archived && <ExamBadge examDate={subject.examDate} />}
         </p>
 
         <ProgressBar progress={progress} className="mt-3" />

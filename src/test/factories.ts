@@ -21,6 +21,7 @@ export function makeSubject(overrides: Partial<Subject> = {}): Subject {
     color: 'sky',
     lmsUrl: null,
     defaultLecturer: null,
+    examDate: null,
     archived: false,
     sortOrder: 0,
     createdAt: BASE_TIME,

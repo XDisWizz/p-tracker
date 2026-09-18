@@ -68,6 +68,8 @@ export interface Subject {
   lmsUrl: string | null;
   /** Předvyplní se nové přednášce, když ji není odkud zdědit. */
   defaultLecturer: string | null;
+  /** Termín zkoušky (nebo zápočtu), na který se chystám. Od schématu 3. */
+  examDate: IsoDate | null;
   /** Předmět z uzavřeného semestru — zmizí z hlavní obrazovky, data zůstanou. */
   archived: boolean;
   sortOrder: number;

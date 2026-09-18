@@ -16,6 +16,7 @@ import type { Id, Lecture, Subject } from '../domain/types';
 import { useAllLectures, useSubjects } from '../hooks/useLiveData';
 import { ProgressBar } from '../components/ProgressBar';
 import { SUBJECT_COLOR_CLASSES, cx } from '../components/tokens';
+import { ExamBadge } from '../components/ExamBadge';
 
 interface StatsPanelProps {
   onOpenSubject: (id: Id) => void;
@@ -271,6 +272,7 @@ function SubjectTable({
                   >
                     {subject.code || subject.name}
                   </button>
+                  {subject.examDate !== null && <ExamBadge examDate={subject.examDate} className="mt-1 flex w-fit" />}
                 </td>
                 <td className="w-1/2 py-2 pr-3">
                   <ProgressBar progress={progress} />

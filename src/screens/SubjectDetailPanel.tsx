@@ -17,6 +17,7 @@ import { ProgressBar } from '../components/ProgressBar';
 import { Button, IconButton } from '../components/ui/Button';
 import { useToast } from '../components/ui/Toast';
 import { SUBJECT_COLOR_CLASSES, cx } from '../components/tokens';
+import { ExamBadge } from '../components/ExamBadge';
 
 interface SubjectDetailPanelProps {
   subjectId: Id | null;
@@ -132,9 +133,12 @@ export function SubjectDetailPanel({
               <span className={cx('size-2.5 shrink-0 rounded-full', colors.dot)} aria-hidden />
               <h2 className="min-w-0 truncate text-lg font-semibold">{subject.name || subject.code}</h2>
             </div>
-            <p className="mt-0.5 text-xs text-muted">
-              {subject.code} · {subject.term}
-              {subject.defaultLecturer !== null && ` · ${subject.defaultLecturer}`}
+            <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
+              <span>
+                {subject.code} · {subject.term}
+                {subject.defaultLecturer !== null && ` · ${subject.defaultLecturer}`}
+              </span>
+              {subject.examDate !== null && <ExamBadge examDate={subject.examDate} />}
             </p>
           </div>
 

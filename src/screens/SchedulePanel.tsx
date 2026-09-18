@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, type ReactNode } from 'react';
-import { ChevronLeft, ChevronRight, MapPin, Pencil, Plus } from 'lucide-react';
+import { CalendarPlus, ChevronLeft, ChevronRight, MapPin, Pencil, Plus } from 'lucide-react';
 import { addDays, formatCsDayMonth, formatCsShort, todayIso } from '../domain/date';
 import {
   DAY_LABELS,
@@ -14,6 +14,10 @@ import {
   type Occurrence,
 } from '../domain/schedule';
 import { lectureDisplayTitle } from '../domain/defaults';
+import { scheduleToIcs } from '../domain/ical';
+import { countOf } from '../domain/plural';
+import { downloadFile } from '../lib/files';
+import { useToast } from '../components/ui/Toast';
 import type { Id, IsoDate, Lecture, Term } from '../domain/types';
 import { useAllLectures } from '../hooks/useLiveData';
 import { useNow } from '../hooks/useNow';
@@ -39,6 +43,7 @@ export function SchedulePanel({ week, onWeekChange, onOpenLecture, onOpenSubject
   const today = todayIso(now);
   const monday = week ?? mondayOf(today);
   const editor = useSlotEditor();
+  const toast = useToast();
   const scroller = useRef<HTMLDivElement>(null);
   const isThisWeek = monday === mondayOf(today);
 
@@ -87,6 +92,24 @@ export function SchedulePanel({ week, onWeekChange, onOpenLecture, onOpenSubject
           <IconButton label="Další týden" onClick={() => onWeekChange(addDays(monday, 7))}>
             <ChevronRight size={20} />
           </IconButton>
+          {context.slots.length > 0 && (
+            <IconButton
+              label="Exportovat rozvrh do kalendáře (.ics)"
+              onClick={() => {
+                const result = scheduleToIcs(context.slots, context.subjects, context.terms);
+                downloadFile('rozvrh.ics', result.text, 'text/calendar');
+                const skipped =
+                  result.skippedSubjects.length > 0
+                    ? ` Bez semestru, vynecháno: ${result.skippedSubjects.join(', ')}.`
+                    : '';
+                toast(
+                  `Staženo ${countOf(result.events, 'hodina', 'hodiny', 'hodin')} — otevři soubor v kalendáři.${skipped}`,
+                );
+              }}
+            >
+              <CalendarPlus size={19} />
+            </IconButton>
+          )}
           <Button
             size="sm"
             variant="primary"

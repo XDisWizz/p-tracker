@@ -17,6 +17,8 @@ import { useLectureActions } from '../hooks/useLectureActions';
 import { useListKeyboard } from '../hooks/useListKeyboard';
 import { BackupReminder } from '../components/BackupReminder';
 import { NowNextCard } from '../components/NowNextCard';
+import { ExamBadge } from '../components/ExamBadge';
+import { upcomingExams } from '../domain/exam';
 import { FilterBar } from '../components/FilterBar';
 import { LectureRow } from '../components/LectureRow';
 import { Button } from '../components/ui/Button';
@@ -166,6 +168,19 @@ export function UpNextPanel({
         </div>
 
         {!filtering && <NowNextCard onOpenLecture={onOpenLecture} onOpenSchedule={onOpenSchedule} />}
+
+        {!filtering &&
+          upcomingExams(subjects, today).map(({ subject }) => (
+            <button
+              key={subject.id}
+              type="button"
+              onClick={() => onOpenSubject(subject.id)}
+              className="flex items-center gap-2 rounded-xl bg-surface px-3 py-2 text-left text-sm ring-1 ring-line hover:ring-accent"
+            >
+              <span className="min-w-0 flex-1 truncate font-medium">{subject.name}</span>
+              {subject.examDate !== null && <ExamBadge examDate={subject.examDate} />}
+            </button>
+          ))}
 
         <BackupReminder />
 

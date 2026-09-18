@@ -137,6 +137,7 @@ export function LectureRow({
         status={lecture.status}
         onAdvance={(next) => onSetStatus(next, 'badge')}
         className="shrink-0"
+        compactOnNarrow
       />
 
       <Menu label={`Možnosti přednášky ${lectureDisplayTitle(lecture)}`}>

@@ -3,13 +3,19 @@ import { ensureIdbCompat } from '../lib/idbCompat';
 import type { Id, Lecture, MetaRow, ScheduleSlot, Subject, Term } from '../domain/types';
 
 /** Verze schématu zapisovaná do exportu. Zvyš ji, kdykoliv přibude migrace. */
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 /** Schéma verze 1 — zachované kvůli testu migrace, ať je jasné, odkud se migruje. */
 export const SCHEMA_V1 = {
   subjects: 'id, code, term, sortOrder',
   lectures: 'id, subjectId, status, date, [subjectId+number], *tags',
   meta: 'key',
+} as const;
+
+/** Tabulky přidané ve verzi 2 — zachované kvůli testu migrace 2 → 3. */
+export const SCHEMA_V2_ADDED = {
+  slots: 'id, subjectId, dayOfWeek',
+  terms: 'id',
 } as const;
 
 /**
@@ -26,10 +32,7 @@ export class StudiumDB extends Dexie {
 
     // v2: rozvrh (slots), období výuky (terms) a zápisky u přednášek.
     this.version(2)
-      .stores({
-        slots: 'id, subjectId, dayOfWeek',
-        terms: 'id',
-      })
+      .stores(SCHEMA_V2_ADDED)
       .upgrade(async (tx) => {
         await tx
           .table<Partial<Lecture>>('lectures')
@@ -39,6 +42,18 @@ export class StudiumDB extends Dexie {
             lecture.summary ??= '';
             lecture.focus ??= '';
             lecture.transcript ??= '';
+          });
+      });
+
+    // v3: termín zkoušky u předmětu. Bez nového indexu — jen doplnění pole.
+    this.version(3)
+      .stores({})
+      .upgrade(async (tx) => {
+        await tx
+          .table<Partial<Subject>>('subjects')
+          .toCollection()
+          .modify((subject) => {
+            subject.examDate ??= null;
           });
       });
   }

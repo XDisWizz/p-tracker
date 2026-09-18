@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { ArrowLeft, Download, Printer, Target } from 'lucide-react';
-import { formatCsShort, todayIso } from '../domain/date';
+import { formatCsDate, formatCsShort, todayIso } from '../domain/date';
 import { lectureDisplayTitle } from '../domain/defaults';
 import { missingNotes, sheetEntries, studySheetFilename, studySheetMarkdown } from '../domain/studySheet';
 import { countOf } from '../domain/plural';
@@ -10,6 +10,7 @@ import { downloadFile } from '../lib/files';
 import { FormattedNotes } from '../components/FormattedNotes';
 import { Button, IconButton } from '../components/ui/Button';
 import { SUBJECT_COLOR_CLASSES, cx } from '../components/tokens';
+import { ExamBadge } from '../components/ExamBadge';
 
 interface StudySheetPanelProps {
   subjectId: Id;
@@ -74,7 +75,11 @@ export function StudySheetPanel({ subjectId, onBack, onOpenLecture }: StudySheet
               {subject.code}
             </span>
             {subject.term} · příprava na zkoušku
+            {subject.examDate !== null && <ExamBadge examDate={subject.examDate} className="print:hidden" />}
           </p>
+          {subject.examDate !== null && (
+            <p className="hidden text-xs print:block">Zkouška {formatCsDate(subject.examDate)}</p>
+          )}
           <h2 className="mt-1 text-xl font-semibold">{subject.name}</h2>
           <p className="mt-1 text-xs text-muted">
             {countOf(entries.length, 'přednáška se zápisem', 'přednášky se zápisem', 'přednášek se zápisem')}

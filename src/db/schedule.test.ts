@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import Dexie from 'dexie';
-import { SCHEMA_V1, createDb, openVerified, type StudiumDB } from './db';
+import { SCHEMA_V1, SCHEMA_V2_ADDED, createDb, openVerified, type StudiumDB } from './db';
 import { scheduleRepo, slotsRepo, termsRepo } from './schedule';
 import { subjectsRepo } from './subjects';
 import { lecturesRepo } from './lectures';
@@ -190,7 +190,57 @@ describe('migrace schématu 1 → 2', () => {
       });
       expect(await upgraded.slots.count()).toBe(0);
       expect(await upgraded.terms.count()).toBe(0);
-      expect(upgraded.verno).toBe(2);
+      expect(upgraded.verno).toBe(3);
+      expect((await upgraded.subjects.get('s1'))?.examDate).toBeNull();
+    } finally {
+      await upgraded.delete();
+    }
+  });
+});
+
+describe('migrace schématu 2 → 3', () => {
+  it('předměty dostanou prázdný termín zkoušky, rozvrh zůstane', async () => {
+    const name = `migrace-v2-${Date.now()}`;
+    const legacy = new Dexie(name);
+    legacy.version(1).stores(SCHEMA_V1);
+    legacy.version(2).stores(SCHEMA_V2_ADDED);
+    await legacy.open();
+    await legacy.table('subjects').add({
+      id: 's1',
+      name: 'Fyzika',
+      code: 'FYZ',
+      term: '2026/27 ZS',
+      color: 'amber',
+      lmsUrl: null,
+      defaultLecturer: null,
+      archived: false,
+      sortOrder: 0,
+      createdAt: '2026-09-01T08:00:00.000Z',
+      updatedAt: '2026-09-01T08:00:00.000Z',
+      deletedAt: null,
+    });
+    await legacy.table('slots').add({
+      id: 'slot1',
+      subjectId: 's1',
+      kind: 'lecture',
+      dayOfWeek: 4,
+      start: '14:15',
+      end: '15:45',
+      room: 'NA-A03',
+      teacher: null,
+      parity: 'every',
+      note: '',
+      createdAt: '2026-09-01T08:00:00.000Z',
+      updatedAt: '2026-09-01T08:00:00.000Z',
+      deletedAt: null,
+    });
+    legacy.close();
+
+    const upgraded = createDb(name);
+    try {
+      await openVerified(upgraded);
+      expect((await upgraded.subjects.get('s1'))?.examDate).toBeNull();
+      expect(await upgraded.slots.get('slot1')).toMatchObject({ room: 'NA-A03' });
     } finally {
       await upgraded.delete();
     }

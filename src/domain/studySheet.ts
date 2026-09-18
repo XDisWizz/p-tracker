@@ -42,7 +42,8 @@ function heading(lecture: Lecture): string {
  */
 export function studySheetMarkdown(subject: Subject, lectures: readonly Lecture[]): string {
   const entries = sheetEntries(subject, lectures);
-  const lines: string[] = [`# ${subject.code ? `${subject.code} — ` : ''}${subject.name}`, '', `Semestr ${subject.term}`, ''];
+  const exam = subject.examDate === null ? '' : ` · zkouška ${formatCsDate(subject.examDate)}`;
+  const lines: string[] = [`# ${subject.code ? `${subject.code} — ` : ''}${subject.name}`, '', `Semestr ${subject.term}${exam}`, ''];
 
   const focused = entries.filter((e) => e.focus !== '');
   if (focused.length > 0) {

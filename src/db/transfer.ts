@@ -76,8 +76,10 @@ function hasTimestamps(raw: Record<string, unknown>): boolean {
   return isStr(raw['createdAt']) && isStr(raw['updatedAt']) && isNullableStr(raw['deletedAt']);
 }
 
-function parseSubject(raw: unknown, index: number): Subject | string {
+function parseSubject(raw: unknown, index: number, schemaVersion: number): Subject | string {
   if (!isRecord(raw)) return `Předmět #${index} není objekt.`;
+  // Termín zkoušky přibyl ve schématu 3; ve starší záloze chybí.
+  const examDate = schemaVersion < 3 && raw['examDate'] === undefined ? null : raw['examDate'];
   if (
     !isStr(raw['id']) ||
     !isStr(raw['name']) ||
@@ -86,6 +88,7 @@ function parseSubject(raw: unknown, index: number): Subject | string {
     !oneOf(SUBJECT_COLORS, raw['color']) ||
     !isNullableStr(raw['lmsUrl']) ||
     !isNullableStr(raw['defaultLecturer']) ||
+    !isNullableStr(examDate) ||
     !isBool(raw['archived']) ||
     !isNum(raw['sortOrder']) ||
     !hasTimestamps(raw)
@@ -100,6 +103,7 @@ function parseSubject(raw: unknown, index: number): Subject | string {
     color: raw['color'],
     lmsUrl: raw['lmsUrl'],
     defaultLecturer: raw['defaultLecturer'],
+    examDate,
     archived: raw['archived'],
     sortOrder: raw['sortOrder'],
     createdAt: raw['createdAt'] as string,
@@ -268,7 +272,7 @@ export function parseExportFile(raw: unknown): ParseResult {
     return { ok: false, error: 'Chybí seznam předmětů nebo přednášek.' };
   }
 
-  const subjects = parseList(raw['subjects'], parseSubject);
+  const subjects = parseList(raw['subjects'], (item, index) => parseSubject(item, index, version));
   if (!subjects.ok) return subjects;
   const lectures = parseList(raw['lectures'], (item, index) => parseLecture(item, index, version));
   if (!lectures.ok) return lectures;

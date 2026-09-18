@@ -52,6 +52,11 @@ describe('studySheetMarkdown', () => {
     expect(md).not.toContain('cizí');
   });
 
+  it('v hlavičce uvede termín zkoušky', () => {
+    const withExam = { ...zma, examDate: '2027-01-20' };
+    expect(studySheetMarkdown(withExam, lectures)).toContain('Semestr 2026/27 ZS · zkouška 20. 1. 2027');
+  });
+
   it('bez zápisků řekne, že nic není', () => {
     expect(studySheetMarkdown(zma, [])).toContain('Zatím žádné zápisky.');
   });

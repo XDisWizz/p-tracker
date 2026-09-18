@@ -68,6 +68,7 @@ export function nextSubjectInput(existing: readonly Subject[], now: Date = new D
     color: freeColor ?? fallback,
     lmsUrl: null,
     defaultLecturer: null,
+    examDate: null,
     archived: false,
     sortOrder: maxOrder + 1,
   };
@@ -108,6 +109,7 @@ export function subjectToInput(subject: Subject): SubjectInput {
     color: subject.color,
     lmsUrl: subject.lmsUrl,
     defaultLecturer: subject.defaultLecturer,
+    examDate: subject.examDate,
     archived: subject.archived,
     sortOrder: subject.sortOrder,
   };
