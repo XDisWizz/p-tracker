@@ -337,12 +337,22 @@ export function planLectureSync(
     const exact = sameDay.find((l) => l.slotId === target.slot.id);
     const manual = sameDay.find((l) => l.slotId === null);
     const match = exact ?? manual;
-    if (match === undefined) {
-      toCreate.push({ date: target.date, slotId: target.slot.id });
+    if (match !== undefined) {
+      claimed.add(match.id);
+      if (match.slotId === null) link.push({ id: match.id, slotId: target.slot.id });
       continue;
     }
-    claimed.add(match.id);
-    if (match.slotId === null) link.push({ id: match.id, slotId: target.slot.id });
+    // Přeložená hodina: ručně přesunutá přednáška ve stejném týdnu termín pokrývá.
+    // Nepřiřazuje se (datum nesedí), jen se kvůli ní nezaloží přednáška navíc.
+    const week = mondayOf(target.date);
+    const moved = live.find(
+      (l) => !claimed.has(l.id) && l.slotId === null && l.date !== null && mondayOf(l.date) === week,
+    );
+    if (moved !== undefined) {
+      claimed.add(moved.id);
+      continue;
+    }
+    toCreate.push({ date: target.date, slotId: target.slot.id });
   }
 
   const remove = live

@@ -85,6 +85,38 @@ describe('syncSubject', () => {
     expect(after.find((l) => l.id === future.id)?.summary).toBe('Předběžné poznámky');
   });
 
+  it('ručně přesunutá přednáška se od rozvrhu odpojí a při další synchronizaci nezmizí', async () => {
+    const s = await subject();
+    const slot = await slotsRepo(db).create(slotInput(s.id));
+    await scheduleRepo(db).syncSubject(s.id, '2026-09-10');
+    const lectures = await lecturesRepo(db).listBySubject(s.id);
+    const moved = lectures.find((l) => l.date === '2026-10-05');
+    if (moved === undefined) throw new Error('chybí přednáška');
+
+    // Přeložená hodina: z pondělí 5. 10. na středu 7. 10.
+    const updated = await lecturesRepo(db).update(moved.id, { date: '2026-10-07' });
+    expect(updated.slotId).toBeNull();
+
+    // Úprava rozvrhu spustí synchronizaci — přesunutá přednáška musí zůstat.
+    await slotsRepo(db).update(slot.id, { room: 'NA-A02' });
+    await scheduleRepo(db).syncSubject(s.id, '2026-09-10');
+    const after = await lecturesRepo(db).listBySubject(s.id);
+    expect(after.find((l) => l.id === moved.id)?.date).toBe('2026-10-07');
+    // A na původní termín nevznikla přednáška navíc.
+    expect(after.some((l) => l.date === '2026-10-05')).toBe(false);
+    expect(after).toHaveLength(12);
+  });
+
+  it('změna jiných údajů přednášku od rozvrhu neodpojí', async () => {
+    const s = await subject();
+    await slotsRepo(db).create(slotInput(s.id));
+    await scheduleRepo(db).syncSubject(s.id, '2026-09-10');
+    const first = (await lecturesRepo(db).listBySubject(s.id))[0];
+    if (first === undefined) throw new Error('chybí přednáška');
+    const updated = await lecturesRepo(db).update(first.id, { title: 'Úvod', date: first.date });
+    expect(updated.slotId).not.toBeNull();
+  });
+
   it('vrácení synchronizace obnoví přesně původní stav', async () => {
     const s = await subject();
     await lecturesRepo(db).createNext(s.id, { date: '2026-09-14', title: 'Ruční' });

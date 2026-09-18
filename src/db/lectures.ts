@@ -81,7 +81,19 @@ export function lecturesRepo(db: StudiumDB) {
         statusAt[patch.status] ??= now;
       }
 
-      const updated: Lecture = { ...current, ...patch, statusAt, updatedAt: now };
+      // Ručně přesunutá přednáška (přeložená hodina) už neodpovídá termínu z rozvrhu.
+      // Odpojit ji, jinak by ji synchronizace při příští úpravě rozvrhu brala jako
+      // „nesedící“ — nevyplněnou by smazala a na původní datum založila novou.
+      const detach =
+        patch.date !== undefined && patch.date !== current.date && patch.slotId === undefined && current.slotId !== null;
+
+      const updated: Lecture = {
+        ...current,
+        ...patch,
+        ...(detach ? { slotId: null } : {}),
+        statusAt,
+        updatedAt: now,
+      };
       await db.lectures.put(updated);
       return updated;
     },

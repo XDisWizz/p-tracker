@@ -257,6 +257,22 @@ describe('planLectureSync', () => {
     expect(plan.renumber).toEqual([{ id: 'e', number: 12 }]);
   });
 
+  it('přeložená hodina ve stejném týdnu nezaloží přednášku navíc', () => {
+    // Přednáška z pondělí 5. 10. přesunutá ručně na středu 7. 10. (odpojená od rozvrhu).
+    const lectures = slotDates(monday, term).map((date, i) =>
+      makeLecture({
+        id: `l${i}`,
+        subjectId,
+        number: i + 1,
+        date: date === '2026-10-05' ? '2026-10-07' : date,
+        slotId: date === '2026-10-05' ? null : 'p1',
+      }),
+    );
+    const plan = planLectureSync(subjectId, [monday], term, lectures, today);
+    expect(plan.create).toEqual([]);
+    expect(plan.remove).toEqual([]);
+  });
+
   it('nesahá na přednášky jiného předmětu', () => {
     const foreign = makeLecture({ id: 'cizi', subjectId: 'jiny', date: '2026-09-14', slotId: null });
     const plan = planLectureSync(subjectId, [monday], term, [foreign], today);
