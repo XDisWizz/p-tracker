@@ -182,11 +182,7 @@ export function UpNextPanel({
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
         {subjects.length === 0 ? (
-          <Empty
-            icon={<Plus size={28} />}
-            text="Zatím tu nic není. Začni přidáním předmětu."
-            action={<Button variant="primary" onClick={onGoToSubjects}>Přidat předmět</Button>}
-          />
+          <Onboarding onGoToSubjects={onGoToSubjects} onOpenSchedule={onOpenSchedule} />
         ) : items.length === 0 ? (
           filtering ? (
             <Empty
@@ -282,6 +278,55 @@ function Empty({
       <span className="text-muted">{icon}</span>
       <p className="text-sm text-muted">{text}</p>
       {action}
+    </div>
+  );
+}
+
+/** Průvodce prvním spuštěním: tři kroky, ve kterých aplikace dává smysl. */
+function Onboarding({ onGoToSubjects, onOpenSchedule }: { onGoToSubjects: () => void; onOpenSchedule: () => void }) {
+  const steps: Array<{ title: string; text: string; action?: ReactNode }> = [
+    {
+      title: 'Přidej předměty',
+      text: 'Název, zkratka a barva. Semestr se předvyplní.',
+      action: (
+        <Button variant="primary" size="sm" onClick={onGoToSubjects}>
+          Přidat předmět
+        </Button>
+      ),
+    },
+    {
+      title: 'Naklikej rozvrh',
+      text: 'Den a blok klepnutím. U přednášek se samy vytvoří přednášky na celý semestr, bez svátků.',
+      action: (
+        <Button size="sm" onClick={onOpenSchedule}>
+          Otevřít rozvrh
+        </Button>
+      ),
+    },
+    {
+      title: 'Po přednášce zapiš, co se probíralo',
+      text: 'Ukáže se ti to jako „minule“ u další hodiny a poskládá se z toho příprava na zkoušku.',
+    },
+  ];
+
+  return (
+    <div className="rounded-2xl bg-surface p-4 ring-1 ring-line">
+      <h3 className="text-base font-semibold">Vítej 👋</h3>
+      <p className="mt-1 text-sm text-muted">Tři kroky a máš přehled o celém semestru. Všechno zůstává jen v tomhle zařízení.</p>
+      <ol className="mt-4 flex flex-col gap-4">
+        {steps.map((step, index) => (
+          <li key={step.title} className="flex gap-3">
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent-soft text-sm font-semibold text-accent">
+              {index + 1}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold">{step.title}</p>
+              <p className="text-xs text-muted">{step.text}</p>
+              {step.action !== undefined && <div className="mt-2">{step.action}</div>}
+            </div>
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }

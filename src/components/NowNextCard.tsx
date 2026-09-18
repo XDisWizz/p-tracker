@@ -1,10 +1,11 @@
 import { useMemo } from 'react';
-import { CalendarClock, ChevronRight, MapPin } from 'lucide-react';
+import { CalendarClock, ChevronRight, MapPin, NotebookPen } from 'lucide-react';
 import { addDays, formatCsShort, todayIso } from '../domain/date';
 import {
   SLOT_KIND_LABELS,
   formatDuration,
   formatTime,
+  justFinished,
   latestNotesBefore,
   lectureForOccurrence,
   minutesOfDay,
@@ -39,6 +40,10 @@ export function NowNextCard({ onOpenLecture, onOpenSchedule }: NowNextCardProps)
     () => (context === undefined ? null : nowAndNext(today, minutes, context)),
     [context, today, minutes],
   );
+  const finished = useMemo(
+    () => (context === undefined ? null : justFinished(today, minutes, context)),
+    [context, today, minutes],
+  );
 
   if (context === undefined || lectures === undefined || state === null) return null;
 
@@ -58,10 +63,38 @@ export function NowNextCard({ onOpenLecture, onOpenSchedule }: NowNextCardProps)
     );
   }
 
-  if (state.current === null && state.next === null) return null;
+  // Po skončené přednášce, dokud je čerstvá v hlavě: nabídnout rovnou zápis.
+  // Jen u přednášky — u cvičení téhož dne by se jinak otevřela přednáška a mátlo by to.
+  const finishedLecture =
+    finished === null || finished.slot.kind !== 'lecture' ? null : lectureForOccurrence(finished, lectures);
+  const promptNotes =
+    finished !== null &&
+    finishedLecture !== null &&
+    finishedLecture.summary.trim() === '' &&
+    finishedLecture.focus.trim() === '';
+
+  if (state.current === null && state.next === null && !promptNotes) return null;
 
   return (
     <div className="flex flex-col gap-2">
+      {promptNotes && finished !== null && finishedLecture !== null && (
+        <button
+          type="button"
+          onClick={() => onOpenLecture(finishedLecture.id)}
+          className="flex w-full items-center gap-3 rounded-2xl bg-accent-soft px-3 py-2.5 text-left ring-1 ring-accent/40 hover:ring-accent"
+        >
+          <NotebookPen size={20} className="shrink-0 text-accent" aria-hidden />
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold">
+              Právě skončilo: {finished.subject.code} {SLOT_KIND_LABELS[finished.slot.kind].toLowerCase()}
+            </span>
+            <span className="block text-xs text-muted">
+              Zapiš, co se probíralo, dokud si to pamatuješ — ukáže se ti to příště.
+            </span>
+          </span>
+          <ChevronRight size={18} className="shrink-0 text-muted" aria-hidden />
+        </button>
+      )}
       {state.current !== null && (
         <OccurrenceTile
           label="Teď"

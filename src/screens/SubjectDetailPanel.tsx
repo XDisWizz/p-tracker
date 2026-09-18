@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ArrowLeft, CalendarPlus, ChevronDown, ExternalLink, MapPin, Plus, RefreshCw } from 'lucide-react';
+import { ArrowLeft, CalendarPlus, ChevronDown, ExternalLink, GraduationCap, MapPin, Plus, RefreshCw } from 'lucide-react';
 import { computeProgress } from '../domain/progress';
 import { todayIso } from '../domain/date';
 import { nextLectureInput } from '../domain/defaults';
@@ -22,6 +22,7 @@ interface SubjectDetailPanelProps {
   subjectId: Id | null;
   onBack: () => void;
   onOpenLecture: (id: Id) => void;
+  onOpenStudySheet: () => void;
   /** Ve dvousloupcovém rozvržení se tlačítko zpět nezobrazuje. */
   showBack: boolean;
   hotkeysActive: boolean;
@@ -31,6 +32,7 @@ export function SubjectDetailPanel({
   subjectId,
   onBack,
   onOpenLecture,
+  onOpenStudySheet,
   showBack,
   hotkeysActive,
 }: SubjectDetailPanelProps) {
@@ -160,6 +162,10 @@ export function SubjectDetailPanel({
           <Button variant="primary" size="sm" onClick={openNew}>
             <Plus size={16} />
             Přednáška
+          </Button>
+          <Button size="sm" onClick={onOpenStudySheet} title="Všechny zápisky předmětu na jedné stránce">
+            <GraduationCap size={16} />
+            Příprava na zkoušku
           </Button>
           {!hasLectureSlots && (
             <Button

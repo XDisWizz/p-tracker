@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  justFinished,
   formatDuration,
   formatTime,
   isUntouched,
@@ -342,5 +343,27 @@ describe('validace', () => {
     expect(guess.teachingStart).toBe('2026-09-14');
     expect(teachingWeekCount(guess)).toBe(13);
     expect(isoWeekday(guessTerm('2026/27 LS').teachingStart)).toBe(1);
+  });
+});
+
+describe('justFinished', () => {
+  const s = makeSubject({ id: 's', term: term.id });
+  const context: ScheduleContext = {
+    subjects: [s],
+    terms: [term],
+    slots: [
+      makeSlot({ id: 'rano', subjectId: 's', dayOfWeek: 2, start: '09:00', end: '10:30' }),
+      makeSlot({ id: 'poledne', subjectId: 's', dayOfWeek: 2, start: '12:30', end: '14:00' }),
+    ],
+  };
+
+  it('vrátí poslední hodinu, která skončila v posledních třech hodinách', () => {
+    expect(justFinished('2026-09-15', timeToMinutes('14:20'), context)?.slot.id).toBe('poledne');
+    expect(justFinished('2026-09-15', timeToMinutes('11:00'), context)?.slot.id).toBe('rano');
+  });
+
+  it('během hodiny ani dlouho po ní nic', () => {
+    expect(justFinished('2026-09-15', timeToMinutes('09:30'), context)).toBeNull();
+    expect(justFinished('2026-09-15', timeToMinutes('18:00'), context)).toBeNull();
   });
 });

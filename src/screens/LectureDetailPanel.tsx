@@ -33,6 +33,7 @@ import {
 import { useLectureActions } from '../hooks/useLectureActions';
 import { useLectureNotes, type NoteField, type SaveState } from '../hooks/useLectureNotes';
 import { AutoTextarea } from '../components/ui/AutoTextarea';
+import { FormattedNotes } from '../components/FormattedNotes';
 import { Button, IconButton } from '../components/ui/Button';
 import { Menu, MenuItem, MenuSeparator } from '../components/ui/Menu';
 import { useToast } from '../components/ui/Toast';
@@ -246,13 +247,15 @@ function LectureEditor({
                 {previous.date !== null && <span className="font-normal">· {formatCsShort(previous.date)}</span>}
               </p>
               {previous.summary.trim() !== '' && (
-                <p className="mt-1.5 line-clamp-6 text-sm whitespace-pre-line">{previous.summary}</p>
+                <div className="relative mt-1.5 max-h-48 overflow-hidden">
+                  <FormattedNotes text={previous.summary} />
+                </div>
               )}
               {previous.focus.trim() !== '' && (
-                <p className="mt-2 line-clamp-4 text-sm whitespace-pre-line">
-                  <span className="font-semibold">Zaměřit se: </span>
-                  {previous.focus}
-                </p>
+                <div className="mt-2 border-l-2 border-amber-400 pl-3">
+                  <p className="text-xs font-semibold text-muted">Zaměřit se</p>
+                  <FormattedNotes text={previous.focus} />
+                </div>
               )}
             </button>
           )}
@@ -260,7 +263,7 @@ function LectureEditor({
           <NoteSection
             icon={<BookOpen size={16} />}
             title="Co se probíralo"
-            hint="Učivo v bodech. Ukáže se jako „minule“ u příští přednášky."
+            hint="Učivo v bodech (odrážky -, nadpisy #, **tučně**). Ukáže se jako „minule“ u příští přednášky."
             field="summary"
             value={notes.draft.summary}
             onChange={notes.update}

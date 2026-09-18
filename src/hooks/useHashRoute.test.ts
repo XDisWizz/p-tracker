@@ -50,6 +50,7 @@ describe('round-trip adresy', () => {
     ['rozvrh', { name: 'schedule', week: null }],
     ['rozvrh konkrétního týdne', { name: 'schedule', week: '2026-09-21' }],
     ['detail přednášky', { name: 'lecture', id: 'abc-123' }],
+    ['příprava na zkoušku', { name: 'studySheet', id: 'abc-123' }],
   ];
 
   for (const [label, route] of cases) {

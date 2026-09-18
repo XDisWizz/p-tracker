@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   BarChart3,
   BookOpen,
@@ -21,10 +21,17 @@ import { useAutoPersist } from './hooks/useStorage';
 import { SubjectsPanel } from './screens/SubjectsPanel';
 import { SubjectDetailPanel } from './screens/SubjectDetailPanel';
 import { UpNextPanel } from './screens/UpNextPanel';
-import { SettingsPanel } from './screens/SettingsPanel';
-import { SchedulePanel } from './screens/SchedulePanel';
-import { LectureDetailPanel } from './screens/LectureDetailPanel';
-import { StatsPanel } from './screens/StatsPanel';
+
+// Obrazovky, které nejsou potřeba hned po startu, se načtou až při prvním otevření.
+// Hlavní obrazovka „Co mě čeká“ tak na telefonu naběhne rychleji; service worker
+// si stejně uloží všechny části předem, takže offline to na nic nemá vliv.
+const SettingsPanel = lazy(() => import('./screens/SettingsPanel').then((m) => ({ default: m.SettingsPanel })));
+const SchedulePanel = lazy(() => import('./screens/SchedulePanel').then((m) => ({ default: m.SchedulePanel })));
+const LectureDetailPanel = lazy(() =>
+  import('./screens/LectureDetailPanel').then((m) => ({ default: m.LectureDetailPanel })),
+);
+const StatsPanel = lazy(() => import('./screens/StatsPanel').then((m) => ({ default: m.StatsPanel })));
+const StudySheetPanel = lazy(() => import('./screens/StudySheetPanel').then((m) => ({ default: m.StudySheetPanel })));
 import { NewLectureFlow } from './components/NewLectureFlow';
 import { UpdatePrompt } from './components/UpdatePrompt';
 import { IconButton } from './components/ui/Button';
@@ -77,6 +84,7 @@ function sectionOf(route: Route): Section {
       return 'schedule';
     case 'subjects':
     case 'subject':
+    case 'studySheet':
     case 'lecture':
       return 'subjects';
     case 'stats':
@@ -183,6 +191,7 @@ function Shell() {
           subjectId={route.id}
           onBack={() => back({ name: 'subjects' })}
           onOpenLecture={openLecture}
+          onOpenStudySheet={() => go({ name: 'studySheet', id: route.id })}
           showBack={!wide}
           hotkeysActive={newLecture === null}
         />
@@ -213,6 +222,15 @@ function Shell() {
     case 'stats':
       main = <StatsPanel onOpenSubject={openSubject} />;
       break;
+    case 'studySheet':
+      main = (
+        <StudySheetPanel
+          subjectId={route.id}
+          onBack={() => back({ name: 'subject', id: route.id })}
+          onOpenLecture={openLecture}
+        />
+      );
+      break;
     case 'settings':
       main = <SettingsPanel themeChoice={theme.choice} onThemeChange={theme.setChoice} />;
       break;
@@ -225,12 +243,13 @@ function Shell() {
   }
 
   // Rozvrh, statistiky a nastavení potřebují šířku; ostatní mají vlevo seznam předmětů.
-  const fullWidth = route.name === 'schedule' || route.name === 'stats' || route.name === 'settings';
+  const fullWidth =
+    route.name === 'schedule' || route.name === 'stats' || route.name === 'settings' || route.name === 'studySheet';
   const section = sectionOf(route);
 
   return (
     <div className="flex h-dvh flex-col">
-      <header className="flex shrink-0 items-center gap-2 border-b border-line bg-surface px-3 py-2">
+      <header className="flex shrink-0 items-center gap-2 border-b border-line bg-surface px-3 py-2 print:hidden">
         <GraduationCap size={22} className="shrink-0 text-accent" aria-hidden />
         <h1 className="min-w-0 flex-1 truncate text-base font-semibold">Přehled přednášek</h1>
         {wide && (
@@ -263,17 +282,19 @@ function Shell() {
         {wide && !fullWidth ? (
           <div className="grid h-full grid-cols-[minmax(20rem,26rem)_1fr]">
             <div className="min-h-0 overflow-hidden border-r border-line">{subjectsList}</div>
-            <div className="min-h-0 overflow-hidden">{main}</div>
+            <div className="min-h-0 overflow-hidden">
+              <Suspense fallback={<div className="h-full" aria-busy="true" />}>{main}</Suspense>
+            </div>
           </div>
         ) : (
-          main
+          <Suspense fallback={<div className="h-full" aria-busy="true" />}>{main}</Suspense>
         )}
       </main>
 
       {!wide && (
         <nav
           aria-label="Hlavní navigace"
-          className="grid shrink-0 grid-cols-4 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)]"
+          className="grid shrink-0 grid-cols-4 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] print:hidden"
         >
           <BottomTab active={section === 'upNext'} onClick={goUpNext} icon={<Inbox size={21} />} badge={dueCount}>
             Čeká

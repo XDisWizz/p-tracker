@@ -238,6 +238,22 @@ export function nowAndNext(
   return { current, next };
 }
 
+/**
+ * Hodina, která dnes skončila před chvílí (nejvýš před `windowMinutes`). Po ní
+ * je nejlepší chvíle zapsat, co se probíralo — dokud si to ještě pamatuju.
+ */
+export function justFinished(
+  today: IsoDate,
+  nowMinutes: number,
+  context: ScheduleContext,
+  windowMinutes = 180,
+): Occurrence | null {
+  const finished = occurrencesOn(today, context).filter(
+    (o) => !o.cancelled && o.endMin <= nowMinutes && nowMinutes - o.endMin <= windowMinutes,
+  );
+  return finished.at(-1) ?? null;
+}
+
 /* ---------- přednášky podle rozvrhu ---------- */
 
 /**

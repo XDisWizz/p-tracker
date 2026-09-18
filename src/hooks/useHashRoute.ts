@@ -13,6 +13,7 @@ import type { Id, IsoDate } from '../domain/types';
  *   #/?q=limity&s=summary      Co mě čeká s filtrem (přežije reload i sdílení odkazu)
  *   #/predmety                 seznam předmětů
  *   #/predmety/<id>            detail předmětu
+ *   #/predmety/<id>/zkouska    příprava na zkoušku
  *   #/nastaveni                záloha, úložiště, vzhled, semestry
  *   #/rozvrh                   týdenní rozvrh
  *   #/rozvrh?t=2026-09-21      rozvrh konkrétního týdne
@@ -23,6 +24,7 @@ export type Route =
   | { name: 'upNext'; filter: LectureFilter }
   | { name: 'subjects' }
   | { name: 'subject'; id: Id }
+  | { name: 'studySheet'; id: Id }
   | { name: 'settings' }
   | { name: 'schedule'; week: IsoDate | null }
   | { name: 'lecture'; id: Id }
@@ -76,10 +78,11 @@ export function parseHash(hash: string): Route {
   const path = questionMark === -1 ? raw : raw.slice(0, questionMark);
   const search = questionMark === -1 ? '' : raw.slice(questionMark + 1);
 
-  const [first, second] = path.split('/').filter(Boolean).map(safeDecode);
+  const [first, second, third] = path.split('/').filter(Boolean).map(safeDecode);
 
   if (first === 'predmety') {
-    return second === undefined ? { name: 'subjects' } : { name: 'subject', id: second };
+    if (second === undefined) return { name: 'subjects' };
+    return third === 'zkouska' ? { name: 'studySheet', id: second } : { name: 'subject', id: second };
   }
   if (first === 'nastaveni') return { name: 'settings' };
   if (first === 'statistiky') return { name: 'stats' };
@@ -102,6 +105,8 @@ export function buildHash(route: Route): string {
       return '#/predmety';
     case 'subject':
       return `#/predmety/${encodeURIComponent(route.id)}`;
+    case 'studySheet':
+      return `#/predmety/${encodeURIComponent(route.id)}/zkouska`;
     case 'settings':
       return '#/nastaveni';
     case 'stats':
