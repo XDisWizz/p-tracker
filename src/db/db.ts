@@ -1,9 +1,16 @@
 import Dexie, { type Table } from 'dexie';
 import { ensureIdbCompat } from '../lib/idbCompat';
-import type { Id, Lecture, MetaRow, Subject } from '../domain/types';
+import type { Id, Lecture, MetaRow, ScheduleSlot, Subject, Term } from '../domain/types';
 
 /** Verze schématu zapisovaná do exportu. Zvyš ji, kdykoliv přibude migrace. */
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
+
+/** Schéma verze 1 — zachované kvůli testu migrace, ať je jasné, odkud se migruje. */
+export const SCHEMA_V1 = {
+  subjects: 'id, code, term, sortOrder',
+  lectures: 'id, subjectId, status, date, [subjectId+number], *tags',
+  meta: 'key',
+} as const;
 
 /**
  * Poznámka k indexům: IndexedDB neumí jako klíč boolean ani `null`. Proto se
@@ -14,21 +21,26 @@ export class StudiumDB extends Dexie {
   constructor(name = 'studium-prehled') {
     super(name);
 
-    this.version(1).stores({
-      subjects: 'id, code, term, sortOrder',
-      lectures: 'id, subjectId, status, date, [subjectId+number], *tags',
-      meta: 'key',
-    });
+    // Nikdy neupravuj existující verzi — vždy přidej novou s vyšším číslem.
+    this.version(1).stores(SCHEMA_V1);
 
-    /*
-     * Vzor pro budoucí změny — nikdy neupravuj blok výše, vždy přidej nový:
-     *
-     * this.version(2).stores({ lectures: '..., novyIndex' }).upgrade(async (tx) => {
-     *   await tx.table<Lecture>('lectures').toCollection().modify((l) => {
-     *     l.novePole = vychoziHodnota;
-     *   });
-     * });
-     */
+    // v2: rozvrh (slots), období výuky (terms) a zápisky u přednášek.
+    this.version(2)
+      .stores({
+        slots: 'id, subjectId, dayOfWeek',
+        terms: 'id',
+      })
+      .upgrade(async (tx) => {
+        await tx
+          .table<Partial<Lecture>>('lectures')
+          .toCollection()
+          .modify((lecture) => {
+            lecture.slotId ??= null;
+            lecture.summary ??= '';
+            lecture.focus ??= '';
+            lecture.transcript ??= '';
+          });
+      });
   }
 
   // Přístup přes gettery místo deklarovaných polí: nezávisí to na nastavení
@@ -44,10 +56,18 @@ export class StudiumDB extends Dexie {
   get meta(): Table<MetaRow, MetaRow['key']> {
     return this.table('meta');
   }
+
+  get slots(): Table<ScheduleSlot, Id> {
+    return this.table('slots');
+  }
+
+  get terms(): Table<Term, string> {
+    return this.table('terms');
+  }
 }
 
 /** Tabulky, bez kterých aplikace nemůže běžet. */
-export const REQUIRED_STORES = ['subjects', 'lectures', 'meta'] as const;
+export const REQUIRED_STORES = ['subjects', 'lectures', 'meta', 'slots', 'terms'] as const;
 
 /**
  * Otevře databázi a ověří, že v ní jsou tabulky aplikace.

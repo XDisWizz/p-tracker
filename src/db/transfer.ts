@@ -4,12 +4,16 @@ import { metaRepo } from './meta';
 import { nowIso, todayIso } from '../domain/date';
 import { isLectureStatus } from '../domain/status';
 import {
+  SLOT_KINDS,
   SUBJECT_COLORS,
+  WEEK_PARITIES,
   type Id,
   type IsoDateTime,
   type Lecture,
+  type ScheduleSlot,
   type StatusTimestamps,
   type Subject,
+  type Term,
 } from '../domain/types';
 
 export const EXPORT_FORMAT = 'studium-prehled';
@@ -21,6 +25,9 @@ export interface ExportFile {
   /** Včetně tombstones — jinak by se smazání nepřeneslo na druhé zařízení. */
   subjects: Subject[];
   lectures: Lecture[];
+  /** Od schématu 2. Starší zálohy je nemají, při čtení se doplní prázdné. */
+  slots: ScheduleSlot[];
+  terms: Term[];
 }
 
 export type ImportMode =
@@ -43,6 +50,8 @@ export interface ImportPlan {
   mode: ImportMode;
   subjects: EntityDiff;
   lectures: EntityDiff;
+  slots: EntityDiff;
+  terms: EntityDiff;
   /** Záznamy existující na obou stranách s odlišným obsahem. */
   conflicts: number;
 }
@@ -60,24 +69,26 @@ const isNullableStr = (v: unknown): v is string | null => v === null || typeof v
 const isBool = (v: unknown): v is boolean => typeof v === 'boolean';
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const isStrArray = (v: unknown): v is string[] => Array.isArray(v) && v.every(isStr);
+const oneOf = <T extends string>(values: readonly T[], v: unknown): v is T =>
+  typeof v === 'string' && (values as readonly string[]).includes(v);
+
+function hasTimestamps(raw: Record<string, unknown>): boolean {
+  return isStr(raw['createdAt']) && isStr(raw['updatedAt']) && isNullableStr(raw['deletedAt']);
+}
 
 function parseSubject(raw: unknown, index: number): Subject | string {
   if (!isRecord(raw)) return `Předmět #${index} není objekt.`;
-  const colors: readonly string[] = SUBJECT_COLORS;
   if (
     !isStr(raw['id']) ||
     !isStr(raw['name']) ||
     !isStr(raw['code']) ||
     !isStr(raw['term']) ||
-    !isStr(raw['color']) ||
-    !colors.includes(raw['color']) ||
+    !oneOf(SUBJECT_COLORS, raw['color']) ||
     !isNullableStr(raw['lmsUrl']) ||
     !isNullableStr(raw['defaultLecturer']) ||
     !isBool(raw['archived']) ||
     !isNum(raw['sortOrder']) ||
-    !isStr(raw['createdAt']) ||
-    !isStr(raw['updatedAt']) ||
-    !isNullableStr(raw['deletedAt'])
+    !hasTimestamps(raw)
   ) {
     return `Předmět #${index} má poškozená nebo chybějící pole.`;
   }
@@ -86,14 +97,14 @@ function parseSubject(raw: unknown, index: number): Subject | string {
     name: raw['name'],
     code: raw['code'],
     term: raw['term'],
-    color: raw['color'] as Subject['color'],
+    color: raw['color'],
     lmsUrl: raw['lmsUrl'],
     defaultLecturer: raw['defaultLecturer'],
     archived: raw['archived'],
     sortOrder: raw['sortOrder'],
-    createdAt: raw['createdAt'],
-    updatedAt: raw['updatedAt'],
-    deletedAt: raw['deletedAt'],
+    createdAt: raw['createdAt'] as string,
+    updatedAt: raw['updatedAt'] as string,
+    deletedAt: raw['deletedAt'] as string | null,
   };
 }
 
@@ -107,9 +118,19 @@ function parseStatusAt(raw: unknown): StatusTimestamps | null {
   return out;
 }
 
-function parseLecture(raw: unknown, index: number): Lecture | string {
+/**
+ * Přednáška ze zálohy. Pole přidaná ve schématu 2 (rozvrh, zápisky) starší
+ * záloha nemá — doplní se prázdná, stejně jako to dělá migrace databáze.
+ */
+function parseLecture(raw: unknown, index: number, schemaVersion: number): Lecture | string {
   if (!isRecord(raw)) return `Přednáška #${index} není objekt.`;
   const statusAt = parseStatusAt(raw['statusAt']);
+  const legacy = schemaVersion < 2;
+  const slotId = legacy && raw['slotId'] === undefined ? null : raw['slotId'];
+  const summary = legacy && raw['summary'] === undefined ? '' : raw['summary'];
+  const focus = legacy && raw['focus'] === undefined ? '' : raw['focus'];
+  const transcript = legacy && raw['transcript'] === undefined ? '' : raw['transcript'];
+
   if (
     !isStr(raw['id']) ||
     !isStr(raw['subjectId']) ||
@@ -124,9 +145,11 @@ function parseLecture(raw: unknown, index: number): Lecture | string {
     !isStr(raw['note']) ||
     !isNullableStr(raw['url']) ||
     !isStrArray(raw['tags']) ||
-    !isStr(raw['createdAt']) ||
-    !isStr(raw['updatedAt']) ||
-    !isNullableStr(raw['deletedAt'])
+    !isNullableStr(slotId) ||
+    !isStr(summary) ||
+    !isStr(focus) ||
+    !isStr(transcript) ||
+    !hasTimestamps(raw)
   ) {
     return `Přednáška #${index} má poškozená nebo chybějící pole.`;
   }
@@ -144,10 +167,84 @@ function parseLecture(raw: unknown, index: number): Lecture | string {
     note: raw['note'],
     url: raw['url'],
     tags: raw['tags'],
-    createdAt: raw['createdAt'],
-    updatedAt: raw['updatedAt'],
-    deletedAt: raw['deletedAt'],
+    slotId,
+    summary,
+    focus,
+    transcript,
+    createdAt: raw['createdAt'] as string,
+    updatedAt: raw['updatedAt'] as string,
+    deletedAt: raw['deletedAt'] as string | null,
   };
+}
+
+function parseSlot(raw: unknown, index: number): ScheduleSlot | string {
+  if (!isRecord(raw)) return `Hodina rozvrhu #${index} není objekt.`;
+  if (
+    !isStr(raw['id']) ||
+    !isStr(raw['subjectId']) ||
+    !oneOf(SLOT_KINDS, raw['kind']) ||
+    !isNum(raw['dayOfWeek']) ||
+    !isStr(raw['start']) ||
+    !isStr(raw['end']) ||
+    !isStr(raw['room']) ||
+    !isNullableStr(raw['teacher']) ||
+    !oneOf(WEEK_PARITIES, raw['parity']) ||
+    !isStr(raw['note']) ||
+    !hasTimestamps(raw)
+  ) {
+    return `Hodina rozvrhu #${index} má poškozená nebo chybějící pole.`;
+  }
+  return {
+    id: raw['id'],
+    subjectId: raw['subjectId'],
+    kind: raw['kind'],
+    dayOfWeek: raw['dayOfWeek'],
+    start: raw['start'],
+    end: raw['end'],
+    room: raw['room'],
+    teacher: raw['teacher'],
+    parity: raw['parity'],
+    note: raw['note'],
+    createdAt: raw['createdAt'] as string,
+    updatedAt: raw['updatedAt'] as string,
+    deletedAt: raw['deletedAt'] as string | null,
+  };
+}
+
+function parseTerm(raw: unknown, index: number): Term | string {
+  if (!isRecord(raw)) return `Semestr #${index} není objekt.`;
+  if (
+    !isStr(raw['id']) ||
+    !isStr(raw['teachingStart']) ||
+    !isStr(raw['teachingEnd']) ||
+    !isStrArray(raw['skipDates']) ||
+    !hasTimestamps(raw)
+  ) {
+    return `Semestr #${index} má poškozená nebo chybějící pole.`;
+  }
+  return {
+    id: raw['id'],
+    teachingStart: raw['teachingStart'],
+    teachingEnd: raw['teachingEnd'],
+    skipDates: raw['skipDates'],
+    createdAt: raw['createdAt'] as string,
+    updatedAt: raw['updatedAt'] as string,
+    deletedAt: raw['deletedAt'] as string | null,
+  };
+}
+
+function parseList<T>(
+  raw: unknown,
+  parse: (item: unknown, index: number) => T | string,
+): { ok: true; items: T[] } | { ok: false; error: string } {
+  if (!Array.isArray(raw)) return { ok: false, error: 'Seznam v záloze chybí nebo je poškozený.' };
+  const items: T[] = [];
+  for (const [index, item] of raw.entries()) {
+    const parsed = parse(item, index + 1);
+    if (typeof parsed === 'string') return { ok: false, error: parsed };
+    items.push(parsed);
+  }
+  return { ok: true, items };
 }
 
 /**
@@ -159,41 +256,39 @@ export function parseExportFile(raw: unknown): ParseResult {
   if (raw['format'] !== EXPORT_FORMAT) {
     return { ok: false, error: 'Tohle není záloha téhle aplikace (chybí označení formátu).' };
   }
-  if (!isNum(raw['schemaVersion'])) {
-    return { ok: false, error: 'Chybí verze schématu.' };
-  }
-  if (raw['schemaVersion'] > SCHEMA_VERSION) {
+  const version = raw['schemaVersion'];
+  if (!isNum(version)) return { ok: false, error: 'Chybí verze schématu.' };
+  if (version > SCHEMA_VERSION) {
     return {
       ok: false,
-      error: `Záloha je z novější verze aplikace (schéma ${raw['schemaVersion']}, tahle umí ${SCHEMA_VERSION}). Aktualizuj aplikaci.`,
+      error: `Záloha je z novější verze aplikace (schéma ${version}, tahle umí ${SCHEMA_VERSION}). Aktualizuj aplikaci.`,
     };
   }
   if (!Array.isArray(raw['subjects']) || !Array.isArray(raw['lectures'])) {
     return { ok: false, error: 'Chybí seznam předmětů nebo přednášek.' };
   }
 
-  const subjects: Subject[] = [];
-  for (const [index, item] of raw['subjects'].entries()) {
-    const parsed = parseSubject(item, index + 1);
-    if (typeof parsed === 'string') return { ok: false, error: parsed };
-    subjects.push(parsed);
-  }
+  const subjects = parseList(raw['subjects'], parseSubject);
+  if (!subjects.ok) return subjects;
+  const lectures = parseList(raw['lectures'], (item, index) => parseLecture(item, index, version));
+  if (!lectures.ok) return lectures;
 
-  const lectures: Lecture[] = [];
-  for (const [index, item] of raw['lectures'].entries()) {
-    const parsed = parseLecture(item, index + 1);
-    if (typeof parsed === 'string') return { ok: false, error: parsed };
-    lectures.push(parsed);
-  }
+  // Rozvrh a semestry existují až od schématu 2; ve starší záloze nejsou a to je v pořádku.
+  const slots = version < 2 && raw['slots'] === undefined ? { ok: true as const, items: [] } : parseList(raw['slots'], parseSlot);
+  if (!slots.ok) return slots;
+  const terms = version < 2 && raw['terms'] === undefined ? { ok: true as const, items: [] } : parseList(raw['terms'], parseTerm);
+  if (!terms.ok) return terms;
 
   return {
     ok: true,
     file: {
       format: EXPORT_FORMAT,
-      schemaVersion: raw['schemaVersion'],
+      schemaVersion: version,
       exportedAt: isStr(raw['exportedAt']) ? raw['exportedAt'] : nowIso(),
-      subjects,
-      lectures,
+      subjects: subjects.items,
+      lectures: lectures.items,
+      slots: slots.items,
+      terms: terms.items,
     },
   };
 }
@@ -289,14 +384,23 @@ export function mergeRecords<T extends Versioned>(
 
 /* ---------- veřejné API ---------- */
 
+const byId = <T extends { id: string }>(a: T, b: T): number => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+
 export async function exportAll(db: StudiumDB, now: string = nowIso()): Promise<ExportFile> {
-  const [subjects, lectures] = await Promise.all([db.subjects.toArray(), db.lectures.toArray()]);
+  const [subjects, lectures, slots, terms] = await Promise.all([
+    db.subjects.toArray(),
+    db.lectures.toArray(),
+    db.slots.toArray(),
+    db.terms.toArray(),
+  ]);
   return {
     format: EXPORT_FORMAT,
     schemaVersion: SCHEMA_VERSION,
     exportedAt: now,
-    subjects: subjects.sort((a, b) => (a.id < b.id ? -1 : 1)),
-    lectures: lectures.sort((a, b) => (a.id < b.id ? -1 : 1)),
+    subjects: subjects.sort(byId),
+    lectures: lectures.sort(byId),
+    slots: slots.sort(byId),
+    terms: terms.sort(byId),
   };
 }
 
@@ -311,16 +415,43 @@ export function exportFilename(today: string = todayIso()): string {
   return `studium-prehled-${today}.json`;
 }
 
+interface MergedAll {
+  subjects: MergeOutcome<Subject>;
+  lectures: MergeOutcome<Lecture>;
+  slots: MergeOutcome<ScheduleSlot>;
+  terms: MergeOutcome<Term>;
+}
+
+async function mergeAll(db: StudiumDB, file: ExportFile, mode: ImportMode): Promise<MergedAll> {
+  const [subjects, lectures, slots, terms] = await Promise.all([
+    db.subjects.toArray(),
+    db.lectures.toArray(),
+    db.slots.toArray(),
+    db.terms.toArray(),
+  ]);
+  return {
+    subjects: mergeRecords(subjects, file.subjects, mode),
+    lectures: mergeRecords(lectures, file.lectures, mode),
+    slots: mergeRecords(slots, file.slots, mode),
+    terms: mergeRecords(terms, file.terms, mode),
+  };
+}
+
+function toPlan(mode: ImportMode, merged: MergedAll): ImportPlan {
+  return {
+    mode,
+    subjects: merged.subjects.diff,
+    lectures: merged.lectures.diff,
+    slots: merged.slots.diff,
+    terms: merged.terms.diff,
+    conflicts:
+      merged.subjects.conflicts + merged.lectures.conflicts + merged.slots.conflicts + merged.terms.conflicts,
+  };
+}
+
 /** Náhled: co se stane, když tenhle soubor naimportuju. Nic nezapisuje. */
-export async function planImport(
-  db: StudiumDB,
-  file: ExportFile,
-  mode: ImportMode,
-): Promise<ImportPlan> {
-  const [subjects, lectures] = await Promise.all([db.subjects.toArray(), db.lectures.toArray()]);
-  const s = mergeRecords(subjects, file.subjects, mode);
-  const l = mergeRecords(lectures, file.lectures, mode);
-  return { mode, subjects: s.diff, lectures: l.diff, conflicts: s.conflicts + l.conflicts };
+export async function planImport(db: StudiumDB, file: ExportFile, mode: ImportMode): Promise<ImportPlan> {
+  return toPlan(mode, await mergeAll(db, file, mode));
 }
 
 export interface ImportResult extends ImportPlan {
@@ -334,22 +465,19 @@ export async function applyImport(
   mode: ImportMode,
   now: string = nowIso(),
 ): Promise<ImportResult> {
-  const plan = await db.transaction('rw', db.subjects, db.lectures, async () => {
-    const [subjects, lectures] = await Promise.all([db.subjects.toArray(), db.lectures.toArray()]);
-    const s = mergeRecords(subjects, file.subjects, mode);
-    const l = mergeRecords(lectures, file.lectures, mode);
+  const plan = await db.transaction('rw', [db.subjects, db.lectures, db.slots, db.terms], async () => {
+    const merged = await mergeAll(db, file, mode);
 
-    if (s.toRemove.length > 0) await db.subjects.bulkDelete(s.toRemove);
-    if (l.toRemove.length > 0) await db.lectures.bulkDelete(l.toRemove);
-    await db.subjects.bulkPut(s.result);
-    await db.lectures.bulkPut(l.result);
+    if (merged.subjects.toRemove.length > 0) await db.subjects.bulkDelete(merged.subjects.toRemove);
+    if (merged.lectures.toRemove.length > 0) await db.lectures.bulkDelete(merged.lectures.toRemove);
+    if (merged.slots.toRemove.length > 0) await db.slots.bulkDelete(merged.slots.toRemove);
+    if (merged.terms.toRemove.length > 0) await db.terms.bulkDelete(merged.terms.toRemove);
+    await db.subjects.bulkPut(merged.subjects.result);
+    await db.lectures.bulkPut(merged.lectures.result);
+    await db.slots.bulkPut(merged.slots.result);
+    await db.terms.bulkPut(merged.terms.result);
 
-    return {
-      mode,
-      subjects: s.diff,
-      lectures: l.diff,
-      conflicts: s.conflicts + l.conflicts,
-    } satisfies ImportPlan;
+    return toPlan(mode, merged);
   });
 
   return { ...plan, appliedAt: now };

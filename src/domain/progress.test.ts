@@ -82,3 +82,43 @@ describe('progressBySubject', () => {
     expect(result.get('c')?.total).toBe(0);
   });
 });
+
+describe('budoucí přednášky', () => {
+  const today = '2026-10-01';
+
+  it('neproběhlé nezačaté se do procent nepočítají', () => {
+    const progress = computeProgress(
+      [
+        makeLecture({ date: '2026-09-14', status: 'summary' }),
+        makeLecture({ date: '2026-09-21', status: 'not_started' }),
+        makeLecture({ date: '2026-10-05', status: 'not_started' }),
+        makeLecture({ date: '2026-10-12', status: 'not_started' }),
+      ],
+      today,
+    );
+    expect(progress.total).toBe(2);
+    expect(progress.upcoming).toBe(2);
+    expect(progress.pending).toBe(1);
+    expect(progress.percent).toBe(50);
+  });
+
+  it('dopředu hotová budoucí přednáška se počítá a procenta nepřetečou', () => {
+    const progress = computeProgress(
+      [makeLecture({ date: '2026-09-14', status: 'tested' }), makeLecture({ date: '2026-10-05', status: 'summary' })],
+      today,
+    );
+    expect(progress.done).toBe(2);
+    expect(progress.total).toBe(2);
+    expect(progress.percent).toBe(100);
+  });
+
+  it('bez dnešního data se počítá všechno jako dřív', () => {
+    const progress = computeProgress([makeLecture({ date: '2030-01-01', status: 'not_started' })]);
+    expect(progress.total).toBe(1);
+    expect(progress.upcoming).toBe(0);
+  });
+
+  it('nedatovaná přednáška se bere jako proběhlá', () => {
+    expect(computeProgress([makeLecture({ date: null })], today).pending).toBe(1);
+  });
+});

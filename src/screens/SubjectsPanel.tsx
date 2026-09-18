@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Archive, BookPlus, Plus } from 'lucide-react';
-import { progressBySubject, type Progress } from '../domain/progress';
+import { EMPTY_PROGRESS, progressBySubject } from '../domain/progress';
+import { todayIso } from '../domain/date';
 import { nextSubjectInput, subjectToInput } from '../domain/defaults';
 import type { Id, Subject, SubjectInput } from '../domain/types';
 import { subjects as subjectsRepo, useAllLectures, useSubjects } from '../hooks/useLiveData';
@@ -25,7 +26,7 @@ export function SubjectsPanel({ selectedId, onSelect }: SubjectsPanelProps) {
   const lectures = useAllLectures();
 
   const progress = useMemo(
-    () => progressBySubject(lectures ?? [], (subjects ?? []).map((s) => s.id)),
+    () => progressBySubject(lectures ?? [], (subjects ?? []).map((s) => s.id), todayIso()),
     [lectures, subjects],
   );
 
@@ -123,24 +124,6 @@ export function SubjectsPanel({ selectedId, onSelect }: SubjectsPanelProps) {
     </div>
   );
 }
-
-/** Předmět bez jediné přednášky — ať karta nemusí řešit `undefined`. */
-const EMPTY_PROGRESS: Progress = {
-  total: 0,
-  done: 0,
-  pending: 0,
-  skipped: 0,
-  ratio: 0,
-  percent: 0,
-  byStatus: {
-    not_started: 0,
-    materials: 0,
-    summary: 0,
-    flashcards: 0,
-    tested: 0,
-    skipped: 0,
-  },
-};
 
 function EmptyState({ onCreate, showArchived }: { onCreate: () => void; showArchived: boolean }) {
   return (

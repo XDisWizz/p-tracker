@@ -94,6 +94,60 @@ export interface Lecture {
   /** Odkaz na složku nebo soubor s podklady. */
   url: string | null;
   tags: string[];
+  /** Hodina rozvrhu, ze které přednáška vznikla. `null` = přidaná ručně. */
+  slotId: Id | null;
+  /** Co se probíralo — ukáže se jako „minule“ u další přednášky. */
+  summary: string;
+  /** Na co se zaměřit: důležité pro zkoušku, co doučit. */
+  focus: string;
+  /** Přepis přednášky. Může být dlouhý (desítky kB). */
+  transcript: string;
+  createdAt: IsoDateTime;
+  updatedAt: IsoDateTime;
+  deletedAt: IsoDateTime | null;
+}
+
+/** Čas ve tvaru `HH:MM`, 24hodinový. */
+export type TimeOfDay = string;
+
+export const SLOT_KINDS = ['lecture', 'exercise', 'lab', 'seminar', 'other'] as const;
+export type SlotKind = (typeof SLOT_KINDS)[number];
+
+/**
+ * Ve kterých týdnech výuky se hodina koná. Počítá se od začátku výuky
+ * v semestru: 1. týden je lichý.
+ */
+export const WEEK_PARITIES = ['every', 'odd', 'even'] as const;
+export type WeekParity = (typeof WEEK_PARITIES)[number];
+
+/** Jedna pravidelná hodina v rozvrhu — třeba „ZMA přednáška, po 9:00–10:30, NA-A01“. */
+export interface ScheduleSlot {
+  id: Id;
+  subjectId: Id;
+  kind: SlotKind;
+  /** 1 = pondělí … 7 = neděle (ISO). */
+  dayOfWeek: number;
+  start: TimeOfDay;
+  end: TimeOfDay;
+  room: string;
+  teacher: string | null;
+  parity: WeekParity;
+  note: string;
+  createdAt: IsoDateTime;
+  updatedAt: IsoDateTime;
+  deletedAt: IsoDateTime | null;
+}
+
+/**
+ * Období výuky jednoho semestru. `id` je stejný řetězec jako `Subject.term`
+ * („2026/27 ZS“), takže se předmět se semestrem páruje bez dalšího klíče.
+ */
+export interface Term {
+  id: string;
+  teachingStart: IsoDate;
+  teachingEnd: IsoDate;
+  /** Dny bez výuky — státní svátky, rektorské volno. Hodiny v nich odpadají. */
+  skipDates: IsoDate[];
   createdAt: IsoDateTime;
   updatedAt: IsoDateTime;
   deletedAt: IsoDateTime | null;
@@ -108,6 +162,11 @@ export type LectureInput = Omit<
   'id' | 'createdAt' | 'updatedAt' | 'deletedAt' | 'statusAt'
 >;
 export type LecturePatch = Partial<LectureInput>;
+
+export type SlotInput = Omit<ScheduleSlot, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>;
+export type SlotPatch = Partial<SlotInput>;
+
+export type TermInput = Omit<Term, 'createdAt' | 'updatedAt' | 'deletedAt'>;
 
 /** Řádek tabulky `meta`. Typované čtení a zápis zajišťuje `db/meta.ts`. */
 export interface MetaShape {

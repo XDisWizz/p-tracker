@@ -46,6 +46,10 @@ export function nextLectureInput(
     note: '',
     url: null,
     tags: previous ? [...previous.tags] : [],
+    slotId: null,
+    summary: '',
+    focus: '',
+    transcript: '',
   };
 }
 
@@ -89,6 +93,10 @@ export function lectureToInput(lecture: Lecture): LectureInput {
     note: lecture.note,
     url: lecture.url,
     tags: [...lecture.tags],
+    slotId: lecture.slotId,
+    summary: lecture.summary,
+    focus: lecture.focus,
+    transcript: lecture.transcript,
   };
 }
 

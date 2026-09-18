@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ArrowLeft, CalendarPlus, ExternalLink, Plus } from 'lucide-react';
 import { computeProgress } from '../domain/progress';
+import { todayIso } from '../domain/date';
 import { nextLectureInput } from '../domain/defaults';
 import type { Id, LectureInput } from '../domain/types';
 import { lectures as lecturesRepo, useSubject, useSubjectLectures } from '../hooks/useLiveData';
@@ -45,7 +46,7 @@ export function SubjectDetailPanel({
   if (subject === undefined) return null;
   if (subject === null) return <NotFound onBack={onBack} />;
 
-  const progress = computeProgress(lectures ?? []);
+  const progress = computeProgress(lectures ?? [], todayIso());
   const colors = SUBJECT_COLOR_CLASSES[subject.color];
 
   /** Rychlé přidání jedním tapnutím — vše se odvodí z předchozí přednášky. */

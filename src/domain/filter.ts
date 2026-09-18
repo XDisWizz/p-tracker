@@ -6,7 +6,7 @@ export interface LectureFilter {
   subjectIds: readonly Id[];
   statuses: readonly LectureStatus[];
   tags: readonly string[];
-  /** Fulltext přes název, poznámku, tagy, přednášejícího, název i zkratku předmětu. */
+  /** Fulltext přes název, poznámku, zápisky, přepis, tagy, přednášejícího a předmět. */
   query: string;
 }
 
@@ -45,17 +45,38 @@ export function normalizeText(value: string): string {
     .trim();
 }
 
-function haystack(lecture: Lecture, subject: Subject | undefined): string {
-  return normalizeText(
+/**
+ * Normalizovaný text přednášky, uložený podle objektu záznamu. Přepis může mít
+ * desítky kB a normalizovat ho při každém stisku klávesy pro každou přednášku
+ * by hledání znatelně zpomalilo.
+ *
+ * Klíčem je objekt, ne `id` + `updatedAt`: databáze vrací po každé změně nové
+ * objekty, takže zastaralý text se nikdy nepoužije, a mezi stisky kláves se
+ * pole přednášek nemění, takže cache opravdu zabírá. WeakMap si navíc staré
+ * záznamy uklidí sama.
+ */
+const lectureTextCache = new WeakMap<Lecture, string>();
+
+function lectureText(lecture: Lecture): string {
+  const cached = lectureTextCache.get(lecture);
+  if (cached !== undefined) return cached;
+  const text = normalizeText(
     [
       lecture.title,
       lecture.note,
+      lecture.summary,
+      lecture.focus,
+      lecture.transcript,
       lecture.tags.join(' '),
       lecture.lecturer ?? '',
-      subject?.name ?? '',
-      subject?.code ?? '',
     ].join(' '),
   );
+  lectureTextCache.set(lecture, text);
+  return text;
+}
+
+function haystack(lecture: Lecture, subject: Subject | undefined): string {
+  return `${lectureText(lecture)} ${normalizeText(`${subject?.name ?? ''} ${subject?.code ?? ''}`)}`;
 }
 
 /** Všechny termíny dotazu musí sedět (AND), každý zvlášť jako podřetězec. */

@@ -216,3 +216,24 @@ describe('toggleValue', () => {
     expect(toggleValue(['a', 'b'], 'a')).toEqual(['b']);
   });
 });
+
+describe('hledání v zápiscích', () => {
+  it('najde přednášku podle učiva, zaměření i přepisu', () => {
+    const lectures = [
+      makeLecture({ id: 'a', subjectId: 'zma', summary: 'Taylorův polynom' }),
+      makeLecture({ id: 'b', subjectId: 'zma', focus: 'Důkaz věty o limitě' }),
+      makeLecture({ id: 'c', subjectId: 'zma', transcript: '… a teď si ukážeme l’Hospitalovo pravidlo …' }),
+    ];
+    expect(filterLectures(lectures, subjects, filter({ query: 'taylor' })).map((l) => l.id)).toEqual(['a']);
+    expect(filterLectures(lectures, subjects, filter({ query: 'dukaz' })).map((l) => l.id)).toEqual(['b']);
+    expect(filterLectures(lectures, subjects, filter({ query: 'hospital' })).map((l) => l.id)).toEqual(['c']);
+  });
+
+  it('po úpravě přednášky hledá v novém textu, ne v uloženém starém', () => {
+    const before = makeLecture({ id: 'x', subjectId: 'zma', summary: 'staré', updatedAt: '2026-09-01T00:00:00.000Z' });
+    expect(filterLectures([before], subjects, filter({ query: 'stare' }))).toHaveLength(1);
+    const after = { ...before, summary: 'nové', updatedAt: '2026-09-02T00:00:00.000Z' };
+    expect(filterLectures([after], subjects, filter({ query: 'stare' }))).toHaveLength(0);
+    expect(filterLectures([after], subjects, filter({ query: 'nove' }))).toHaveLength(1);
+  });
+});

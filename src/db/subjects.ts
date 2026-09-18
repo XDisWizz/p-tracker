@@ -52,7 +52,7 @@ export function subjectsRepo(db: StudiumDB) {
      * pozná, které patřily k tomuhle smazání a které jsi smazal dřív ručně.
      */
     async softDelete(id: Id, now: string = nowIso()): Promise<void> {
-      await db.transaction('rw', db.subjects, db.lectures, async () => {
+      await db.transaction('rw', [db.subjects, db.lectures, db.slots], async () => {
         const subject = await db.subjects.get(id);
         if (subject === undefined) return;
         await db.subjects.put({ ...subject, deletedAt: now, updatedAt: now });
@@ -61,11 +61,17 @@ export function subjectsRepo(db: StudiumDB) {
           .filter((l) => l.deletedAt === null)
           .map((l) => ({ ...l, deletedAt: now, updatedAt: now }));
         if (touched.length > 0) await db.lectures.bulkPut(touched);
+        // Hodiny v rozvrhu jdou s předmětem — jinak by v rozvrhu visely hodiny bez předmětu.
+        const slots = await db.slots.where('subjectId').equals(id).toArray();
+        const slotsTouched = slots
+          .filter((s) => s.deletedAt === null)
+          .map((s) => ({ ...s, deletedAt: now, updatedAt: now }));
+        if (slotsTouched.length > 0) await db.slots.bulkPut(slotsTouched);
       });
     },
 
     async restore(id: Id, now: string = nowIso()): Promise<void> {
-      await db.transaction('rw', db.subjects, db.lectures, async () => {
+      await db.transaction('rw', [db.subjects, db.lectures, db.slots], async () => {
         const subject = await db.subjects.get(id);
         if (subject === undefined || subject.deletedAt === null) return;
         const deletedAt = subject.deletedAt;
@@ -75,6 +81,11 @@ export function subjectsRepo(db: StudiumDB) {
           .filter((l) => l.deletedAt === deletedAt)
           .map((l) => ({ ...l, deletedAt: null, updatedAt: now }));
         if (touched.length > 0) await db.lectures.bulkPut(touched);
+        const slots = await db.slots.where('subjectId').equals(id).toArray();
+        const slotsTouched = slots
+          .filter((s) => s.deletedAt === deletedAt)
+          .map((s) => ({ ...s, deletedAt: null, updatedAt: now }));
+        if (slotsTouched.length > 0) await db.slots.bulkPut(slotsTouched);
       });
     },
 

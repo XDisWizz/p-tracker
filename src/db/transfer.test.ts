@@ -15,7 +15,7 @@ import { SCHEMA_VERSION, type StudiumDB } from './db';
 import { subjectsRepo } from './subjects';
 import { lecturesRepo } from './lectures';
 import { metaRepo } from './meta';
-import { freshDb, makeLecture, makeSubject } from '../test/factories';
+import { freshDb, makeLecture, makeSlot, makeSubject, makeTerm } from '../test/factories';
 import { nextSubjectInput } from '../domain/defaults';
 import type { ExportFile } from './transfer';
 
@@ -39,13 +39,20 @@ async function seed(): Promise<void> {
   await lectures.createNext(upa.id, { note: 'dodělat příklady' });
 }
 
-function fileFrom(subjects: ExportFile['subjects'], lectures: ExportFile['lectures']): ExportFile {
+function fileFrom(
+  subjects: ExportFile['subjects'],
+  lectures: ExportFile['lectures'],
+  slots: ExportFile['slots'] = [],
+  terms: ExportFile['terms'] = [],
+): ExportFile {
   return {
     format: EXPORT_FORMAT,
     schemaVersion: SCHEMA_VERSION,
     exportedAt: '2026-09-15T10:00:00.000Z',
     subjects,
     lectures,
+    slots,
+    terms,
   };
 }
 
@@ -294,5 +301,61 @@ describe('vrácení importu', () => {
     await applyImport(db, snapshot, 'replace');
 
     expect(await exportAll(db, '2026-09-15T10:00:00.000Z')).toEqual(before);
+  });
+});
+
+describe('schéma 2: rozvrh a zápisky v záloze', () => {
+  it('round-trip přenese hodiny rozvrhu, semestry i zápisky', async () => {
+    const subject = makeSubject({ id: 's' });
+    const lecture = makeLecture({ id: 'l', subjectId: 's', summary: 'Limity', focus: 'ε-δ', transcript: 'dlouhý text' });
+    const file = fileFrom([subject], [lecture], [makeSlot({ id: 'slot', subjectId: 's' })], [makeTerm()]);
+
+    await applyImport(db, file, 'replace');
+    const exported = await exportAll(db, file.exportedAt);
+
+    expect(exported.slots).toEqual(file.slots);
+    expect(exported.terms).toEqual(file.terms);
+    expect(exported.lectures[0]).toMatchObject({ summary: 'Limity', focus: 'ε-δ', transcript: 'dlouhý text' });
+  });
+
+  it('záloha ze schématu 1 projde a přednášky dostanou prázdné zápisky', () => {
+    const legacyLecture: Record<string, unknown> = { ...makeLecture({ id: 'stara' }) };
+    for (const key of ['slotId', 'summary', 'focus', 'transcript']) delete legacyLecture[key];
+
+    const result = parseExportFile({
+      format: EXPORT_FORMAT,
+      schemaVersion: 1,
+      exportedAt: '2026-09-01T00:00:00.000Z',
+      subjects: [makeSubject()],
+      lectures: [legacyLecture],
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.file.slots).toEqual([]);
+    expect(result.file.terms).toEqual([]);
+    expect(result.file.lectures[0]).toMatchObject({ slotId: null, summary: '', focus: '', transcript: '' });
+  });
+
+  it('záloha ze schématu 2 bez rozvrhu neprojde — tam už povinný je', () => {
+    const result = parseExportFile({
+      format: EXPORT_FORMAT,
+      schemaVersion: 2,
+      exportedAt: '2026-09-01T00:00:00.000Z',
+      subjects: [],
+      lectures: [],
+    });
+    expect(result.ok).toBe(false);
+  });
+
+  it('odmítne hodinu s neznámým druhem', () => {
+    const broken = { ...makeSlot(), kind: 'prednaska' };
+    expect(parseExportFile(fileFrom([], [], [broken] as never)).ok).toBe(false);
+  });
+
+  it('náhled importu počítá i rozvrh', async () => {
+    const plan = await planImport(db, fileFrom([], [], [makeSlot()], [makeTerm()]), 'merge-newer');
+    expect(plan.slots.added).toBe(1);
+    expect(plan.terms.added).toBe(1);
   });
 });
