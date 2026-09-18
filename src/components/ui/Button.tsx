@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import type { ButtonHTMLAttributes, ReactNode, Ref } from 'react';
 import { cx } from '../tokens';
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'destructive';
@@ -48,6 +48,8 @@ export function Button({
 }
 
 interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  /** React 19 předává `ref` jako obyčejnou prop — třeba pro vrácení fokusu z nabídky. */
+  ref?: Ref<HTMLButtonElement>;
   /** Povinný — ikona sama o sobě nesdělí nic odečítači obrazovky. */
   label: string;
   variant?: Variant;
