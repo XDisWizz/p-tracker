@@ -33,6 +33,8 @@ const LectureDetailPanel = lazy(() =>
 const StatsPanel = lazy(() => import('./screens/StatsPanel').then((m) => ({ default: m.StatsPanel })));
 const StudySheetPanel = lazy(() => import('./screens/StudySheetPanel').then((m) => ({ default: m.StudySheetPanel })));
 import { NewLectureFlow } from './components/NewLectureFlow';
+import { SyncIndicator } from './components/SyncIndicator';
+import { DriveSyncProvider } from './hooks/useDriveSync';
 import { UpdatePrompt } from './components/UpdatePrompt';
 import { IconButton } from './components/ui/Button';
 import { ToastProvider } from './components/ui/Toast';
@@ -68,7 +70,9 @@ function useDueCount(): { dueCount: number; hasData: boolean } {
 export function App() {
   return (
     <ToastProvider>
-      <Shell />
+      <DriveSyncProvider>
+        <Shell />
+      </DriveSyncProvider>
     </ToastProvider>
   );
 }
@@ -265,6 +269,7 @@ function Shell() {
             </HeaderTab>
           </nav>
         )}
+        <SyncIndicator onOpen={goSettings} />
         <ThemeToggle choice={theme.choice} resolved={theme.resolved} onCycle={theme.cycle} />
         <IconButton
           label="Nastavení a záloha"

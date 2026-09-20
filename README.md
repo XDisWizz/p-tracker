@@ -1,8 +1,9 @@
 # Přehled přednášek
 
 Osobní PWA pro studium: rozvrh, přednášky vygenerované z rozvrhu, zápisky z každé
-přednášky a přehled, co je hotové a co ještě čeká. Běží offline, bez účtu a bez
-serveru — všechna data zůstávají v prohlížeči na zařízení.
+přednášky a přehled, co je hotové a co ještě čeká. Běží offline a bez serveru —
+data zůstávají v prohlížeči na zařízení. Volitelně je umí průběžně synchronizovat
+mezi zařízeními přes tvůj vlastní Google Disk.
 
 **Stack:** Vite · React 19 · TypeScript 7 (strict) · Tailwind CSS 4 · Dexie (IndexedDB) · vite-plugin-pwa · Vitest · oxlint
 
@@ -25,6 +26,8 @@ serveru — všechna data zůstávají v prohlížeči na zařízení.
   zpracovávám, jestli dluh roste, nebo ho doháním.
 - **Záloha** — export do JSON, import s náhledem a volbou sloučit/nahradit, vrácení
   importu, připomínka zálohy, trvalé úložiště.
+- **Synchronizace** — nepovinná, přes tvůj Google Disk. Změna odchází sama, cizí
+  změna dorazí do pár vteřin. Viz [Synchronizace mezi zařízeními](#synchronizace-mezi-zařízeními).
 
 ---
 
@@ -103,6 +106,59 @@ ale i pak zůstane dostupná každému, kdo zná adresu.
 
 ---
 
+## Synchronizace mezi zařízeními
+
+Nepovinná. Bez ní aplikace nikam nevolá a chová se jako předtím.
+
+Zapnutá jezdí přes **tvůj** Google Disk: aplikace si tam založí jediný soubor
+`studium-prehled.json` — stejný formát jako ruční záloha, takže se dá kdykoliv
+stáhnout a otevřít. Rozsah oprávnění je `drive.file`, což znamená, že aplikace
+vidí právě a jen tenhle svůj soubor. Do zbytku Disku nevidí.
+
+### Jak to funguje
+
+- **Místní změna** se po vteřině a půl sloučí s tím, co je na Disku, a pošle zpátky.
+- **Cizí změna** se hledá lehkým dotazem na číslo verze souboru, každých 10 sekund
+  na popředí a hned při návratu do aplikace. Stahuje se, až když se verze liší.
+- **Když je aplikace schovaná nebo offline, neděje se nic** — pošle se po návratu.
+- **Slučuje se po záznamech**, vyhrává novější `updatedAt`. Smazané záznamy nesou
+  `deletedAt`, takže mazání se přenáší a nic se „nevrací z mrtvých“.
+- **Žádná strana nikdy nesmaže záznam té druhé.** Nejhorší možný výsledek souběhu
+  je, že se jedno kolo přepíše — a zařízení, které přišlo pozdě, to pozná při
+  dalším kole a pošle své novější záznamy znovu.
+- **Cizí nebo poškozený soubor se nikdy nepřepíše.** Synchronizace se zastaví
+  a řekne proč.
+
+Skutečné oznamování z Disku (bez dotazování) by vyžadovalo server, který přijme
+webhook od Googlu. Ten tahle aplikace nemá a mít nechce, proto dotazování.
+
+### Nastavení (jednou, pět minut)
+
+Projekt u Googlu musí být tvůj — jinak by data tekla přes cizí účet.
+
+1. V [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+   založ projekt.
+2. **APIs & Services → Library** → zapni **Google Drive API**.
+3. **OAuth consent screen** → typ *External*, vyplň název a e-mail, sebe přidej
+   mezi *Test users*.
+4. **Credentials → Create credentials → OAuth client ID** → typ **Web application**.
+5. Do **Authorized JavaScript origins** vlož adresu, kde aplikace běží
+   (`https://<uzivatel>.github.io`, pro vývoj i `http://localhost:5173`).
+   Redirect URI se nevyplňuje.
+6. Vzniklé **Client ID** vlož v aplikaci do **Nastavení → Synchronizace → Nastavit**.
+
+Client ID není tajemství (je vidět v přihlašovací adrese), `client_secret` se
+nepoužívá vůbec. Přístupový token žije v paměti karty, nikam se neukládá.
+
+**Aby se Client ID nemuselo opisovat na každém zařízení**, jde ho zadat při
+sestavení: v repozitáři **Settings → Secrets and variables → Actions → Variables**
+přidej `VITE_GOOGLE_CLIENT_ID`. Workflow ho do buildu dosadí sám.
+
+Na každém dalším zařízení pak stačí **Připojit Google Disk** a přihlásit se
+stejným účtem.
+
+---
+
 ## Instalace na Android
 
 1. Otevři adresu aplikace v **Chrome**.
@@ -120,8 +176,9 @@ Na **počítači** (Chrome, Edge, Thorium) je v adresním řádku ikona instalac
   bez 28. 9., 28. 10. a 17. 11.). Další semestry se zadají v **Nastavení → Semestry**.
 - **Liché a sudé týdny** se počítají od začátku výuky: 1. týden semestru je lichý.
   Kdyby tvůj rozvrh počítal jinak, přehoď u hodiny liché/sudé.
-- **Data jsou vázaná na prohlížeč a zařízení.** Přenos: **Nastavení → Stáhnout zálohu**
-  na jednom, **Obnovit ze zálohy → Sloučit** na druhém.
+- **Data jsou vázaná na prohlížeč a zařízení.** Ruční přenos: **Nastavení → Stáhnout
+  zálohu** na jednom, **Obnovit ze zálohy → Sloučit** na druhém. Trvale to řeší
+  [synchronizace](#synchronizace-mezi-zařízeními).
 - **Zálohuj.** Android může při nedostatku místa smazat data prohlížeče. Aplikace si
   o trvalé úložiště řekne sama a připomene zálohu, když dlouho neproběhla.
 - **Vymazání dat webu** v nastavení prohlížeče smaže i přednášky.
@@ -150,6 +207,7 @@ src/
   domain/     čistá logika bez Reactu a databáze — typy, stavy, rozvrh, semestry,
               progress, statistiky, filtry, data, zápisky, příprava na zkoušku
   db/         Dexie: schéma a migrace, repozitáře, synchronizace rozvrhu, export/import, úklid
+  sync/       Google Disk: jádro slučování (bez sítě), REST klient, přihlášení
   hooks/      reaktivní čtení z databáze, routing, téma, zkratky, zápisky, rozvrh, zálohy
   components/ UI komponenty
   screens/    obrazovky (Co mě čeká, Rozvrh, Předměty, detaily, Statistiky, Nastavení)

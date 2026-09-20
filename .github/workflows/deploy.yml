@@ -40,6 +40,11 @@ jobs:
           # Stránka běží v podsložce podle názvu repozitáře (/nazev-repa/).
           # Výjimka je repozitář <uzivatel>.github.io, ten běží v kořeni.
           VITE_BASE: ${{ endsWith(github.event.repository.name, '.github.io') && '/' || format('/{0}/', github.event.repository.name) }}
+          # Nepovinné: id klienta pro synchronizaci s Google Diskem. Nastavuje se
+          # v Settings → Secrets and variables → Actions → Variables. Není to
+          # tajemství (je vidět v přihlašovací adrese), proto proměnná, ne secret.
+          # Bez něj se synchronizace jen nenabídne a zbytek aplikace běží dál.
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
 
       - uses: actions/upload-pages-artifact@v5
         with:

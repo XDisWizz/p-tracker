@@ -1,6 +1,7 @@
 import type { StudiumDB } from './db';
 import { SCHEMA_VERSION } from './db';
 import { metaRepo } from './meta';
+import { fingerprint } from '../lib/hash';
 import { nowIso, todayIso } from '../domain/date';
 import { isLectureStatus } from '../domain/status';
 import {
@@ -389,6 +390,22 @@ export function mergeRecords<T extends Versioned>(
 /* ---------- veřejné API ---------- */
 
 const byId = <T extends { id: string }>(a: T, b: T): number => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+
+/**
+ * Otisk samotných dat — bez času exportu. Dva exporty stejného obsahu mají
+ * stejný otisk, i když vznikly v jinou vteřinu, v jiném pořadí polí nebo na
+ * jiném zařízení. Na tom stojí rozhodování synchronizace, jestli je co posílat.
+ */
+export function contentFingerprint(file: ExportFile): string {
+  return fingerprint(
+    canonical([
+      file.subjects.toSorted(byId),
+      file.lectures.toSorted(byId),
+      file.slots.toSorted(byId),
+      file.terms.toSorted(byId),
+    ]),
+  );
+}
 
 export async function exportAll(db: StudiumDB, now: string = nowIso()): Promise<ExportFile> {
   const [subjects, lectures, slots, terms] = await Promise.all([

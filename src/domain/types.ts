@@ -180,6 +180,18 @@ export interface MetaShape {
   storagePersistAsked: boolean;
   /** Do kdy je připomínka zálohy odložená tlačítkem „Později“. */
   backupSnoozedUntil: IsoDateTime | null;
+  /** Zapnutá průběžná synchronizace s Google Diskem. */
+  driveSyncEnabled: boolean;
+  /** Id souboru se zálohou na Disku. Drží se, aby se nemusel hledat podle názvu. */
+  driveFileId: string | null;
+  /** Kdy naposledy proběhla úspěšná synchronizace. */
+  driveLastSyncAt: IsoDateTime | null;
+  /** Verze souboru na Disku, kterou tohle zařízení naposledy vidělo. */
+  driveRemoteVersion: string | null;
+  /** Otisk dat po poslední synchronizaci — podle něj se pozná změna bez stahování. */
+  driveFingerprint: string | null;
+  /** Účet, ke kterému je synchronizace připojená. Jen na zobrazení. */
+  driveAccount: string | null;
 }
 
 export interface MetaRow {

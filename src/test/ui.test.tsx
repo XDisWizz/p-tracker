@@ -124,6 +124,24 @@ describe('aplikace v prohlížeči', () => {
     expect(await db.lectures.count()).toBe(1);
   });
 
+  it('synchronizace se nabízí až po nastavení a průvodce ukáže adresu téhle stránky', async () => {
+    await renderApp();
+    await go('#/nastaveni');
+
+    expect(await screen.findByText('Synchronizace mezi zařízeními')).toBeTruthy();
+    // Bez zadaného Client ID se nesmí objevit tlačítko na připojení účtu.
+    expect(screen.queryByRole('button', { name: /Připojit Google Disk/ })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: /Nastavit/ }));
+    const dialog = await screen.findByRole('dialog', { name: 'Nastavení synchronizace' });
+    expect(within(dialog).getByText(window.location.origin)).toBeTruthy();
+
+    // Nesmysl místo Client ID projít nesmí.
+    fireEvent.change(within(dialog).getByLabelText('Client ID'), { target: { value: 'neco' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Uložit' }));
+    expect(await within(dialog).findByRole('alert')).toBeTruthy();
+  });
+
   it('neznámá adresa nespadne, ale vede na hlavní obrazovku', async () => {
     window.location.hash = '#/tohle/neexistuje';
     await renderApp();
