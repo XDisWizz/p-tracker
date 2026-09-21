@@ -97,11 +97,9 @@ export function useSlotEditor(options: { lockedSubjectId?: Id | undefined } = {}
 
   const openEdit = useCallback((slot: ScheduleSlot): void => setEditing({ mode: 'edit', slot }), []);
 
-  const affectsLectures = (before: ScheduleSlot | null, after: SlotInput): boolean =>
-    before === null
-      ? after.kind === 'lecture'
-      : before.kind === 'lecture' ||
-        after.kind === 'lecture';
+  // Každá změna hodiny může změnit záznamy: předmět bez přednášky se sleduje
+  // podle cvičení, takže i úprava cvičení se počítá. Srovnání bez změny nic nedělá.
+  const affectsLectures = (_before: ScheduleSlot | null, _after: SlotInput): boolean => true;
 
   let editor: ReactNode = null;
   if (editing !== null && subjects !== undefined) {
@@ -149,7 +147,7 @@ export function useSlotEditor(options: { lockedSubjectId?: Id | undefined } = {}
                 void (async () => {
                   await slotsRepo.softDelete(slot.id);
                   toast('Hodina smazána', { label: 'Zpět', run: () => slotsRepo.restore(slot.id) });
-                  if (slot.kind === 'lecture') await sync(slot.subjectId);
+                  await sync(slot.subjectId);
                 })();
               }
             : undefined

@@ -5,6 +5,7 @@ import {
   SLOT_KIND_LABELS,
   formatDuration,
   formatTime,
+  isTrackedSlot,
   justFinished,
   latestNotesBefore,
   lectureForOccurrence,
@@ -64,9 +65,11 @@ export function NowNextCard({ onOpenLecture, onOpenSchedule }: NowNextCardProps)
   }
 
   // Po skončené přednášce, dokud je čerstvá v hlavě: nabídnout rovnou zápis.
-  // Jen u přednášky — u cvičení téhož dne by se jinak otevřela přednáška a mátlo by to.
+  // Jen u sledované hodiny — u cvičení téhož dne by se jinak otevřela přednáška a mátlo by to.
   const finishedLecture =
-    finished === null || finished.slot.kind !== 'lecture' ? null : lectureForOccurrence(finished, lectures);
+    finished === null || !isTrackedSlot(finished.slot, context.slots)
+      ? null
+      : lectureForOccurrence(finished, lectures);
   const promptNotes =
     finished !== null &&
     finishedLecture !== null &&

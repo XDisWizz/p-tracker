@@ -85,7 +85,8 @@ export function SubjectDetailPanel({
   const all = lectures ?? [];
   const progress = computeProgress(all, today);
   const colors = SUBJECT_COLOR_CLASSES[subject.color];
-  const hasLectureSlots = sortedSlots.some((s) => s.kind === 'lecture');
+  // Předmět s jakoukoliv hodinou v rozvrhu má záznamy z rozvrhu (bez přednášky podle cvičení).
+  const hasLectureSlots = sortedSlots.length > 0;
 
   // Budoucí přednášky z rozvrhu: ukázat nejbližší dvě, zbytek schovat, ať seznam nezavalí semestr dopředu.
   const past = all.filter((l) => l.date === null || l.date <= today);

@@ -1,7 +1,7 @@
 import type { StudiumDB } from './db';
 import { newId } from './db';
 import { nowIso, todayIso } from '../domain/date';
-import { planLectureSync, type LectureSyncPlan } from '../domain/schedule';
+import { planLectureSync, scheduledLectureId, type LectureSyncPlan } from '../domain/schedule';
 import { termPreset, validateTerm } from '../domain/terms';
 import type {
   Id,
@@ -155,8 +155,15 @@ export function scheduleRepo(db: StudiumDB) {
         for (const { id, number } of plan.renumber) touch(id, { number });
         for (const id of plan.remove) touch(id, { deletedAt: now });
 
+        // Stabilní id, pokud ho nedrží jiný živý záznam — třeba ručně přesunutá
+        // přednáška, která si id ze svého původního termínu nese dál.
+        const idFor = (slotId: Id, date: string): Id => {
+          const stable = scheduledLectureId(slotId, date);
+          const holder = byId.get(stable);
+          return holder !== undefined && holder.deletedAt === null ? newId() : stable;
+        };
         const created: Lecture[] = plan.create.map((planned) => ({
-          id: newId(),
+          id: idFor(planned.slotId, planned.date),
           subjectId,
           number: planned.number,
           title: '',
@@ -179,7 +186,8 @@ export function scheduleRepo(db: StudiumDB) {
         }));
 
         if (changed.size > 0) await db.lectures.bulkPut([...changed.values()]);
-        if (created.length > 0) await db.lectures.bulkAdd(created);
+        // `bulkPut`: stabilní id může patřit smazanému záznamu — ten se tím vrátí jako nový.
+        if (created.length > 0) await db.lectures.bulkPut(created);
 
         return {
           status: 'ok',

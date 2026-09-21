@@ -318,6 +318,31 @@ export function isEmptyPlan(plan: LectureSyncPlan): boolean {
 }
 
 /**
+ * Hodiny, podle kterých v předmětu vznikají záznamy. Normálně jen přednášky —
+ * cvičení k nim by přehled zdvojilo. Předmět, který v rozvrhu přednášku nemá
+ * (třeba ZMA jen se cvičením), se ale sleduje podle svých ostatních hodin,
+ * jinak by v přehledu neměl vůbec nic.
+ */
+export function trackedSlots(subjectId: Id, slots: readonly ScheduleSlot[]): ScheduleSlot[] {
+  const live = slots.filter((s) => s.subjectId === subjectId && s.deletedAt === null);
+  const lectures = live.filter((s) => s.kind === 'lecture');
+  return lectures.length > 0 ? lectures : live;
+}
+
+export function isTrackedSlot(slot: ScheduleSlot, slots: readonly ScheduleSlot[]): boolean {
+  return trackedSlots(slot.subjectId, slots).some((s) => s.id === slot.id);
+}
+
+/**
+ * Id záznamu vytvořeného z rozvrhu. Stejná hodina ve stejný den dá na každém
+ * zařízení stejné id, takže když si rozvrh srovnají dvě zařízení nezávisle
+ * na sobě, synchronizace přes Disk záznamy sloučí místo toho, aby je zdvojila.
+ */
+export function scheduledLectureId(slotId: Id, date: IsoDate): Id {
+  return `${slotId}@${date}`;
+}
+
+/**
  * Co udělat, aby přednášky předmětu odpovídaly rozvrhu.
  *
  * Pravidla, na kterých záleží:
@@ -334,9 +359,7 @@ export function planLectureSync(
   today: IsoDate,
 ): LectureSyncPlan {
   const live = lectures.filter((l) => l.subjectId === subjectId && l.deletedAt === null);
-  const lectureSlots = slots
-    .filter((s) => s.subjectId === subjectId && s.deletedAt === null && s.kind === 'lecture')
-    .toSorted((a, b) => a.dayOfWeek - b.dayOfWeek || timeToMinutes(a.start) - timeToMinutes(b.start));
+  const lectureSlots = trackedSlots(subjectId, slots).toSorted((a, b) => a.dayOfWeek - b.dayOfWeek || timeToMinutes(a.start) - timeToMinutes(b.start));
 
   const targets = lectureSlots
     .flatMap((slot) => slotDates(slot, term).map((date) => ({ date, slot })))

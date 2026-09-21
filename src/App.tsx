@@ -18,6 +18,7 @@ import { useTheme, type ThemeChoice } from './hooks/useTheme';
 import { useHotkeys } from './hooks/useHotkeys';
 import { useAllLectures, useSubjects } from './hooks/useLiveData';
 import { useAutoPersist } from './hooks/useStorage';
+import { useScheduleCatchUp } from './hooks/useScheduleCatchUp';
 import { SubjectsPanel } from './screens/SubjectsPanel';
 import { SubjectDetailPanel } from './screens/SubjectDetailPanel';
 import { UpNextPanel } from './screens/UpNextPanel';
@@ -104,6 +105,7 @@ function Shell() {
   const wide = useIsWide();
   const { dueCount, hasData } = useDueCount();
   useAutoPersist(hasData);
+  useScheduleCatchUp();
 
   const [newLecture, setNewLecture] = useState<{ preferredSubjectId: Id | null } | null>(null);
   const [focusSearch, setFocusSearch] = useState(false);

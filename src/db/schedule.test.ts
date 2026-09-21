@@ -57,6 +57,40 @@ describe('syncSubject', () => {
     expect(await termsRepo(db).get('2026/27 ZS')).toBeDefined();
   });
 
+  it('dvě zařízení vytvoří z téže hodiny záznamy se stejným id', async () => {
+    const s = await subject();
+    const slot = await slotsRepo(db).create(slotInput(s.id));
+    await scheduleRepo(db).syncSubject(s.id, '2026-09-10');
+
+    const other = createDb(`druhe-zarizeni-${Date.now()}`);
+    try {
+      await other.subjects.put(s);
+      await other.slots.put(slot);
+      await scheduleRepo(other).syncSubject(s.id, '2026-09-10');
+      const ids = async (d: StudiumDB): Promise<string[]> => (await d.lectures.toArray()).map((l) => l.id).toSorted();
+      expect(await ids(other)).toEqual(await ids(db));
+    } finally {
+      await other.delete();
+    }
+  });
+
+  it('ručně přesunutá přednáška o své id nepřijde, i když se její termín doplní znovu', async () => {
+    const s = await subject();
+    await slotsRepo(db).create(slotInput(s.id));
+    await scheduleRepo(db).syncSubject(s.id, '2026-09-10');
+    const firstId = (await lecturesRepo(db).listBySubject(s.id))[0]?.id ?? '';
+    expect(firstId).not.toBe('');
+    // Přesun o dva týdny: od rozvrhu se odpojí a jeho původní termín zůstane volný.
+    await lecturesRepo(db).update(firstId, { date: '2026-09-30', summary: 'limity' });
+
+    await scheduleRepo(db).syncSubject(s.id, '2026-09-10');
+
+    expect((await db.lectures.get(firstId))?.summary).toBe('limity');
+    const onOldDate = (await lecturesRepo(db).listBySubject(s.id)).filter((l) => l.date === '2026-09-14');
+    expect(onOldDate).toHaveLength(1);
+    expect(onOldDate[0]?.id).not.toBe(firstId);
+  });
+
   it('bez známého semestru nic nevytvoří a řekne proč', async () => {
     const s = await subject({ term: '2031/32 LS' });
     await slotsRepo(db).create(slotInput(s.id));

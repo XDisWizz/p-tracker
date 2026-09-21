@@ -111,9 +111,13 @@ export function SlotForm({
             </Toggle>
           ))}
         </Group>
-        {draft.kind === 'lecture' && (
+        {draft.kind === 'lecture' ? (
           <p className="-mt-2 text-xs text-muted">
             Podle přednášek se v předmětu samy vytvoří přednášky na celý semestr.
+          </p>
+        ) : (
+          <p className="-mt-2 text-xs text-muted">
+            Když předmět nemá v rozvrhu přednášku, záznamy na celý semestr se vytvoří podle téhle hodiny.
           </p>
         )}
 

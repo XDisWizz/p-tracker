@@ -199,6 +199,8 @@ export interface MetaShape {
   driveFingerprint: string | null;
   /** Účet, ke kterému je synchronizace připojená. Jen na zobrazení. */
   driveAccount: string | null;
+  /** Podle které verze pravidel se naposledy srovnaly záznamy s rozvrhem. */
+  scheduleRulesVersion: number;
 }
 
 export interface MetaRow {

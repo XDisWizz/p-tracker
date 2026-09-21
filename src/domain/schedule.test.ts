@@ -187,9 +187,17 @@ describe('planLectureSync', () => {
     expect(plan.create[2]).toEqual({ date: '2026-10-05', slotId: 'p1', number: 3 });
   });
 
-  it('cvičení přednášky nevytváří', () => {
-    const exercise = makeSlot({ subjectId, kind: 'exercise' });
-    expect(planLectureSync(subjectId, [exercise], term, [], today).create).toHaveLength(0);
+  it('vedle přednášky cvičení záznamy nevytváří — přehled by se zdvojil', () => {
+    const exercise = makeSlot({ subjectId, kind: 'exercise', dayOfWeek: 3 });
+    const plan = planLectureSync(subjectId, [monday, exercise], term, [], today);
+    expect(plan.create.every((c) => c.slotId === monday.id)).toBe(true);
+  });
+
+  it('předmět jen se cvičením se sleduje podle cvičení', () => {
+    const exercise = makeSlot({ subjectId, kind: 'exercise', dayOfWeek: 3 });
+    const plan = planLectureSync(subjectId, [exercise], term, [], today);
+    expect(plan.create).toHaveLength(12); // 13 týdnů bez 28. 10.
+    expect(plan.create[0]?.date).toBe('2026-09-16');
   });
 
   it('opakované volání nedělá nic', () => {
