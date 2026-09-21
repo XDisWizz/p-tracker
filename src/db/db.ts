@@ -3,7 +3,7 @@ import { ensureIdbCompat } from '../lib/idbCompat';
 import type { Id, Lecture, MetaRow, ScheduleSlot, Subject, Term } from '../domain/types';
 
 /** Verze schématu zapisovaná do exportu. Zvyš ji, kdykoliv přibude migrace. */
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 /** Schéma verze 1 — zachované kvůli testu migrace, ať je jasné, odkud se migruje. */
 export const SCHEMA_V1 = {
@@ -54,6 +54,19 @@ export class StudiumDB extends Dexie {
           .toCollection()
           .modify((subject) => {
             subject.examDate ??= null;
+          });
+      });
+
+    // v4: hodina rozvrhu jen v části semestru (od–do týdne výuky).
+    this.version(4)
+      .stores({})
+      .upgrade(async (tx) => {
+        await tx
+          .table<Partial<ScheduleSlot>>('slots')
+          .toCollection()
+          .modify((slot) => {
+            slot.weekFrom ??= null;
+            slot.weekTo ??= null;
           });
       });
   }

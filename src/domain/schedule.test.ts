@@ -20,6 +20,7 @@ import {
   teachingWeekCount,
   timeToMinutes,
   validateSlot,
+  weekRangeLabel,
   type ScheduleContext,
 } from './schedule';
 import { guessTerm, termPreset, validateTerm } from './terms';
@@ -381,5 +382,47 @@ describe('justFinished', () => {
   it('během hodiny ani dlouho po ní nic', () => {
     expect(justFinished('2026-09-15', timeToMinutes('09:30'), context)).toBeNull();
     expect(justFinished('2026-09-15', timeToMinutes('18:00'), context)).toBeNull();
+  });
+});
+
+describe('hodina jen v části semestru', () => {
+  it('laboratoř 8.–13. týden: první 2. 11., poslední 7. 12.', () => {
+    const dates = slotDates(makeSlot({ dayOfWeek: 3, weekFrom: 8, weekTo: 13 }), term);
+    expect(dates[0]).toBe('2026-11-04');
+    expect(dates.at(-1)).toBe('2026-12-09');
+    expect(dates).toHaveLength(6);
+  });
+
+  it('cvičení 1.–7. týden končí před laboratořemi, svátek vynechá', () => {
+    const dates = slotDates(makeSlot({ dayOfWeek: 2, weekTo: 7 }), term);
+    expect(dates).toEqual([
+      '2026-09-15',
+      '2026-09-22',
+      '2026-09-29',
+      '2026-10-06',
+      '2026-10-13',
+      '2026-10-20',
+      '2026-10-27',
+    ]);
+  });
+
+  it('rozsah se kombinuje s paritou a platí i pro rozvrh na konkrétní den', () => {
+    const slot = makeSlot({ dayOfWeek: 1, parity: 'odd', weekFrom: 3 });
+    // 3. týden je 28. 9. — svátek, takže první lichý týden od třetího s výukou je pátý.
+    expect(slotDates(slot, term)[0]).toBe('2026-10-12');
+    expect(occursOn(slot, '2026-09-14', term).occurs).toBe(false);
+    expect(occursOn(makeSlot({ dayOfWeek: 3, weekFrom: 8 }), '2026-11-04', term).occurs).toBe(true);
+    expect(occursOn(makeSlot({ dayOfWeek: 3, weekFrom: 8 }), '2026-10-28', term).occurs).toBe(false);
+  });
+
+  it('popisek a kontrola zadání', () => {
+    expect(weekRangeLabel({ weekFrom: 8, weekTo: 13 })).toBe('8.–13. týden');
+    expect(weekRangeLabel({ weekFrom: null, weekTo: 7 })).toBe('do 7. týdne');
+    expect(weekRangeLabel({ weekFrom: 5, weekTo: null })).toBe('od 5. týdne');
+    expect(weekRangeLabel({ weekFrom: null, weekTo: null })).toBeNull();
+    const base = { dayOfWeek: 1, start: '09:00', end: '10:30' };
+    expect(validateSlot({ ...base, weekFrom: 8, weekTo: 13 })).toBeNull();
+    expect(validateSlot({ ...base, weekFrom: 9, weekTo: 3 })).not.toBeNull();
+    expect(validateSlot({ ...base, weekFrom: 0, weekTo: null })).not.toBeNull();
   });
 });

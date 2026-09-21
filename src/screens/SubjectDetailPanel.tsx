@@ -3,7 +3,7 @@ import { ArrowLeft, CalendarPlus, ChevronDown, ExternalLink, GraduationCap, MapP
 import { computeProgress } from '../domain/progress';
 import { todayIso } from '../domain/date';
 import { nextLectureInput } from '../domain/defaults';
-import { PARITY_LABELS, SLOT_KIND_LABELS, dayShort, formatTime, timeToMinutes } from '../domain/schedule';
+import { PARITY_LABELS, SLOT_KIND_LABELS, dayShort, formatTime, timeToMinutes, weekRangeLabel } from '../domain/schedule';
 import { countOf } from '../domain/plural';
 import type { Id, LectureInput } from '../domain/types';
 import { lectures as lecturesRepo, useSubject, useSubjectLectures, useSubjectSlots } from '../hooks/useLiveData';
@@ -234,6 +234,7 @@ export function SubjectDetailPanel({
                       </span>
                     )}
                     {slot.parity !== 'every' && <span className="text-muted">{PARITY_LABELS[slot.parity]}</span>}
+                    {weekRangeLabel(slot) !== null && <span className="text-muted">{weekRangeLabel(slot)}</span>}
                   </button>
                 </li>
               ))}

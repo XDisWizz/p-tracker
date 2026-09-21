@@ -134,6 +134,13 @@ export interface ScheduleSlot {
   room: string;
   teacher: string | null;
   parity: WeekParity;
+  /**
+   * Jen od tohoto týdne výuky (včetně), `null` = od začátku. Pro hodiny, které
+   * neběží celý semestr — třeba cvičení 1.–7. týden a laboratoře 8.–13. týden.
+   */
+  weekFrom: number | null;
+  /** Jen do tohoto týdne výuky (včetně), `null` = do konce semestru. */
+  weekTo: number | null;
   note: string;
   createdAt: IsoDateTime;
   updatedAt: IsoDateTime;

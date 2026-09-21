@@ -11,6 +11,7 @@ import {
   mondayOf,
   occurrencesOn,
   teachingWeek,
+  weekRangeLabel,
   type Occurrence,
 } from '../domain/schedule';
 import { lectureDisplayTitle } from '../domain/defaults';
@@ -335,6 +336,7 @@ function OccurrenceCard({
             </span>
           )}
           {slot.parity !== 'every' && <span>{slot.parity === 'odd' ? 'liché' : 'sudé'}</span>}
+          {weekRangeLabel(slot) !== null && <span>{weekRangeLabel(slot)}</span>}
           {!compact && slot.teacher !== null && <span className="truncate">{slot.teacher}</span>}
         </div>
         {lecture !== null && (finished || running) && (

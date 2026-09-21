@@ -70,6 +70,8 @@ export function makeSlot(overrides: Partial<ScheduleSlot> = {}): ScheduleSlot {
     room: 'NA-A01',
     teacher: null,
     parity: 'every',
+    weekFrom: null,
+    weekTo: null,
     note: '',
     createdAt: BASE_TIME,
     updatedAt: BASE_TIME,

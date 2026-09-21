@@ -168,6 +168,38 @@ export function SlotForm({
         )}
 
         <div className="grid grid-cols-2 gap-3">
+          <Field label="Od týdne">
+            {(id) => (
+              <TextInput
+                id={id}
+                type="number"
+                inputMode="numeric"
+                min={1}
+                value={draft.weekFrom ?? ''}
+                placeholder="1"
+                onChange={(e) => set('weekFrom', weekValue(e.target.value))}
+              />
+            )}
+          </Field>
+          <Field label="Do týdne">
+            {(id) => (
+              <TextInput
+                id={id}
+                type="number"
+                inputMode="numeric"
+                min={1}
+                value={draft.weekTo ?? ''}
+                placeholder="konec"
+                onChange={(e) => set('weekTo', weekValue(e.target.value))}
+              />
+            )}
+          </Field>
+        </div>
+        <p className="-mt-2 text-xs text-muted">
+          Nepovinné. Pro hodiny, které neběží celý semestr — třeba laboratoře až od 8. týdne.
+        </p>
+
+        <div className="grid grid-cols-2 gap-3">
           <Field label="Místnost">
             {(id) => (
               <TextInput
@@ -206,6 +238,13 @@ export function SlotForm({
       </form>
     </Modal>
   );
+}
+
+/** Prázdné pole = bez omezení. */
+function weekValue(raw: string): number | null {
+  if (raw.trim() === '') return null;
+  const value = Number(raw);
+  return Number.isFinite(value) ? value : null;
 }
 
 function Group({ label, children }: { label: string; children: ReactNode }) {

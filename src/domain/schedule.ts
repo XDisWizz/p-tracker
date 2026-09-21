@@ -133,14 +133,32 @@ export function matchesParity(parity: WeekParity, week: number): boolean {
   return parity === 'odd' ? week % 2 === 1 : week % 2 === 0;
 }
 
+type WeekRule = Pick<ScheduleSlot, 'parity' | 'weekFrom' | 'weekTo'>;
+
+/** Koná se hodina v daném týdnu výuky? Parita i rozsah „od–do týdne“ dohromady. */
+export function matchesWeek(slot: WeekRule, week: number): boolean {
+  if (slot.weekFrom !== null && week < slot.weekFrom) return false;
+  if (slot.weekTo !== null && week > slot.weekTo) return false;
+  return matchesParity(slot.parity, week);
+}
+
+/** „8.–13. týden“, „od 8. týdne“, „do 7. týdne“, nebo `null`, když hodina běží celý semestr. */
+export function weekRangeLabel(slot: Pick<ScheduleSlot, 'weekFrom' | 'weekTo'>): string | null {
+  const { weekFrom: from, weekTo: to } = slot;
+  if (from !== null && to !== null) return from === to ? `jen ${from}. týden` : `${from}.–${to}. týden`;
+  if (from !== null) return `od ${from}. týdne`;
+  if (to !== null) return `do ${to}. týdne`;
+  return null;
+}
+
 /** Všechna data, kdy se hodina v semestru koná. Dny volna vynechá. */
-export function slotDates(slot: Pick<ScheduleSlot, 'dayOfWeek' | 'parity'>, term: Term): IsoDate[] {
+export function slotDates(slot: Pick<ScheduleSlot, 'dayOfWeek'> & WeekRule, term: Term): IsoDate[] {
   const weeks = teachingWeekCount(term);
   const firstMonday = mondayOf(term.teachingStart);
   const skip = new Set(term.skipDates);
   const out: IsoDate[] = [];
   for (let week = 1; week <= weeks; week += 1) {
-    if (!matchesParity(slot.parity, week)) continue;
+    if (!matchesWeek(slot, week)) continue;
     const date = addDays(firstMonday, (week - 1) * 7 + slot.dayOfWeek - 1);
     if (date < term.teachingStart || date > term.teachingEnd || skip.has(date)) continue;
     out.push(date);
@@ -162,7 +180,7 @@ export function occursOn(slot: ScheduleSlot, date: IsoDate, term: Term | undefin
   if (isoWeekday(date) !== slot.dayOfWeek) return { occurs: false, cancelled: false };
   if (term === undefined) return { occurs: true, cancelled: false };
   const week = teachingWeek(term, date);
-  if (week === null || !matchesParity(slot.parity, week)) return { occurs: false, cancelled: false };
+  if (week === null || !matchesWeek(slot, week)) return { occurs: false, cancelled: false };
   return { occurs: true, cancelled: term.skipDates.includes(date) };
 }
 
@@ -448,7 +466,14 @@ export function validateSlot(input: {
   dayOfWeek: number;
   start: string;
   end: string;
+  weekFrom?: number | null;
+  weekTo?: number | null;
 }): string | null {
+  const from = input.weekFrom ?? null;
+  const to = input.weekTo ?? null;
+  const badWeek = (w: number | null): boolean => w !== null && (!Number.isInteger(w) || w < 1 || w > 30);
+  if (badWeek(from) || badWeek(to)) return 'Týden výuky zadej jako číslo od 1.';
+  if (from !== null && to !== null && to < from) return 'Poslední týden nemůže být před prvním.';
   if (!Number.isInteger(input.dayOfWeek) || input.dayOfWeek < 1 || input.dayOfWeek > 7) return 'Vyber den.';
   if (!isValidTime(input.start) || !isValidTime(input.end)) return 'Čas zadej jako HH:MM.';
   if (timeToMinutes(input.end) <= timeToMinutes(input.start)) return 'Konec musí být po začátku.';

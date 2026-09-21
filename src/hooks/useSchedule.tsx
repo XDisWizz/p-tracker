@@ -85,6 +85,8 @@ export function useSlotEditor(options: { lockedSubjectId?: Id | undefined } = {}
           room: '',
           teacher: null,
           parity: 'every',
+          weekFrom: null,
+          weekTo: null,
           note: '',
           ...defaults,
         },
@@ -115,6 +117,8 @@ export function useSlotEditor(options: { lockedSubjectId?: Id | undefined } = {}
             room: editing.slot.room,
             teacher: editing.slot.teacher,
             parity: editing.slot.parity,
+            weekFrom: editing.slot.weekFrom,
+            weekTo: editing.slot.weekTo,
             note: editing.slot.note,
           };
 

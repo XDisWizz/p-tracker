@@ -69,6 +69,7 @@ const isStr = (v: unknown): v is string => typeof v === 'string';
 const isNullableStr = (v: unknown): v is string | null => v === null || typeof v === 'string';
 const isBool = (v: unknown): v is boolean => typeof v === 'boolean';
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+const isNullableNum = (v: unknown): v is number | null => v === null || isNum(v);
 const isStrArray = (v: unknown): v is string[] => Array.isArray(v) && v.every(isStr);
 const oneOf = <T extends string>(values: readonly T[], v: unknown): v is T =>
   typeof v === 'string' && (values as readonly string[]).includes(v);
@@ -182,8 +183,12 @@ function parseLecture(raw: unknown, index: number, schemaVersion: number): Lectu
   };
 }
 
-function parseSlot(raw: unknown, index: number): ScheduleSlot | string {
+function parseSlot(raw: unknown, index: number, schemaVersion: number): ScheduleSlot | string {
   if (!isRecord(raw)) return `Hodina rozvrhu #${index} není objekt.`;
+  // Rozsah týdnů přibyl ve schématu 4; ve starší záloze chybí = celý semestr.
+  const legacy = schemaVersion < 4;
+  const weekFrom = legacy && raw['weekFrom'] === undefined ? null : raw['weekFrom'];
+  const weekTo = legacy && raw['weekTo'] === undefined ? null : raw['weekTo'];
   if (
     !isStr(raw['id']) ||
     !isStr(raw['subjectId']) ||
@@ -194,6 +199,8 @@ function parseSlot(raw: unknown, index: number): ScheduleSlot | string {
     !isStr(raw['room']) ||
     !isNullableStr(raw['teacher']) ||
     !oneOf(WEEK_PARITIES, raw['parity']) ||
+    !isNullableNum(weekFrom) ||
+    !isNullableNum(weekTo) ||
     !isStr(raw['note']) ||
     !hasTimestamps(raw)
   ) {
@@ -209,6 +216,8 @@ function parseSlot(raw: unknown, index: number): ScheduleSlot | string {
     room: raw['room'],
     teacher: raw['teacher'],
     parity: raw['parity'],
+    weekFrom,
+    weekTo,
     note: raw['note'],
     createdAt: raw['createdAt'] as string,
     updatedAt: raw['updatedAt'] as string,
@@ -279,7 +288,7 @@ export function parseExportFile(raw: unknown): ParseResult {
   if (!lectures.ok) return lectures;
 
   // Rozvrh a semestry existují až od schématu 2; ve starší záloze nejsou a to je v pořádku.
-  const slots = version < 2 && raw['slots'] === undefined ? { ok: true as const, items: [] } : parseList(raw['slots'], parseSlot);
+  const slots = version < 2 && raw['slots'] === undefined ? { ok: true as const, items: [] } : parseList(raw['slots'], (item, index) => parseSlot(item, index, version));
   if (!slots.ok) return slots;
   const terms = version < 2 && raw['terms'] === undefined ? { ok: true as const, items: [] } : parseList(raw['terms'], parseTerm);
   if (!terms.ok) return terms;

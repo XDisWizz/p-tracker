@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import Dexie from 'dexie';
-import { SCHEMA_V1, SCHEMA_V2_ADDED, createDb, openVerified, type StudiumDB } from './db';
+import { SCHEMA_V1, SCHEMA_V2_ADDED, SCHEMA_VERSION, createDb, openVerified, type StudiumDB } from './db';
 import { scheduleRepo, slotsRepo, termsRepo } from './schedule';
 import { subjectsRepo } from './subjects';
 import { lecturesRepo } from './lectures';
@@ -32,6 +32,8 @@ function slotInput(subjectId: string, overrides: Partial<SlotInput> = {}): SlotI
     room: 'NA-A01',
     teacher: 'doc. Novák',
     parity: 'every',
+    weekFrom: null,
+    weekTo: null,
     note: '',
     ...overrides,
   };
@@ -222,7 +224,7 @@ describe('migrace schématu 1 → 2', () => {
       });
       expect(await upgraded.slots.count()).toBe(0);
       expect(await upgraded.terms.count()).toBe(0);
-      expect(upgraded.verno).toBe(3);
+      expect(upgraded.verno).toBe(SCHEMA_VERSION);
       expect((await upgraded.subjects.get('s1'))?.examDate).toBeNull();
     } finally {
       await upgraded.delete();
@@ -272,7 +274,8 @@ describe('migrace schématu 2 → 3', () => {
     try {
       await openVerified(upgraded);
       expect((await upgraded.subjects.get('s1'))?.examDate).toBeNull();
-      expect(await upgraded.slots.get('slot1')).toMatchObject({ room: 'NA-A03' });
+      // Migrace 3 → 4: stará hodina platí dál celý semestr.
+      expect(await upgraded.slots.get('slot1')).toMatchObject({ room: 'NA-A03', weekFrom: null, weekTo: null });
     } finally {
       await upgraded.delete();
     }
