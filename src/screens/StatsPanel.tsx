@@ -17,6 +17,7 @@ import { useAllLectures, useSubjects } from '../hooks/useLiveData';
 import { ProgressBar } from '../components/ProgressBar';
 import { SUBJECT_COLOR_CLASSES, cx } from '../components/tokens';
 import { ExamBadge } from '../components/ExamBadge';
+import { useNotYetHeld } from '../hooks/useNotYetHeld';
 
 interface StatsPanelProps {
   onOpenSubject: (id: Id) => void;
@@ -32,6 +33,7 @@ export function StatsPanel({ onOpenSubject }: StatsPanelProps) {
   const subjects = useSubjects();
   const lectures = useAllLectures();
   const today = todayIso();
+  const notYet = useNotYetHeld();
 
   const data = useMemo(() => {
     if (subjects === undefined || lectures === undefined) return null;
@@ -42,12 +44,12 @@ export function StatsPanel({ onOpenSubject }: StatsPanelProps) {
     return {
       live,
       buckets,
-      pace: computePace(live, today),
+      pace: computePace(live, today, notYet),
       lag: medianLagDays(live),
       streak: weekStreak(buckets),
-      overall: computeProgress(live, today),
+      overall: computeProgress(live, today, notYet),
     };
-  }, [subjects, lectures, today]);
+  }, [subjects, lectures, today, notYet]);
 
   if (data === null || subjects === undefined) return null;
 
@@ -237,10 +239,11 @@ function SubjectTable({
   today: string;
   onOpenSubject: (id: Id) => void;
 }) {
+  const notYet = useNotYetHeld();
   const rows = subjects
     .map((subject) => {
       const own = lectures.filter((l) => l.subjectId === subject.id);
-      return { subject, progress: computeProgress(own, today), lag: medianLagDays(own) };
+      return { subject, progress: computeProgress(own, today, notYet), lag: medianLagDays(own) };
     })
     .filter((r) => r.progress.total + r.progress.upcoming > 0)
     // Nejhorší nahoře: tam je potřeba začít.

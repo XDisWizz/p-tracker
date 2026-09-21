@@ -23,6 +23,8 @@ import { FilterBar } from '../components/FilterBar';
 import { LectureRow } from '../components/LectureRow';
 import { Button } from '../components/ui/Button';
 import { SUBJECT_COLOR_CLASSES } from '../components/tokens';
+import { useNotYetHeld } from '../hooks/useNotYetHeld';
+import { isAhead } from '../domain/held';
 
 interface UpNextPanelProps {
   filter: LectureFilter;
@@ -79,15 +81,16 @@ export function UpNextPanel({
   );
 
   const today = todayIso();
+  const notYet = useNotYetHeld();
   const keyboardOrder = useMemo(() => {
     if (filter.statuses.length > 0) return items;
-    const groups = groupByDue(items, today);
+    const groups = groupByDue(items, today, notYet);
     const weekAhead = addDays(today, 7);
     const upcoming = showAllUpcoming
       ? groups.upcoming
       : groups.upcoming.filter((l) => l.date !== null && l.date <= weekAhead);
     return [...groups.due, ...upcoming, ...groups.undated];
-  }, [items, filter.statuses.length, today, showAllUpcoming]);
+  }, [items, filter.statuses.length, today, notYet, showAllUpcoming]);
 
   const selectedId = useListKeyboard({
     lectures: keyboardOrder,
@@ -127,7 +130,7 @@ export function UpNextPanel({
         onEdit={() => actions.edit(lecture)}
         isToday={lecture.date === today}
         selected={lecture.id === selectedId}
-        upcoming={lecture.date !== null && lecture.date > today}
+        upcoming={isAhead(lecture, today, notYet)}
         onDelete={() => void actions.remove(lecture, code)}
         onSetStatus={(status) =>
           // Tady se hláška s „Zpět“ hodí i u odznaku: přednáška, která přestane
@@ -141,7 +144,7 @@ export function UpNextPanel({
     );
   }
 
-  const groups = groupByDue(items, today);
+  const groups = groupByDue(items, today, notYet);
   const oldestDue = groups.due[0];
   // Z rozvrhu vznikají přednášky na celý semestr dopředu — ukázat jen týden, zbytek na požádání.
   const weekAhead = addDays(today, 7);

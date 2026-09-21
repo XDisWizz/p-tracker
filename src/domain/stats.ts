@@ -2,6 +2,7 @@ import { addDays, daysBetween, todayIso } from './date';
 import { mondayOf } from './schedule';
 import { isDone, isSkipped } from './status';
 import type { IsoDate, Lecture } from './types';
+import { NONE_PENDING, isAhead, type NotYetHeld } from './held';
 
 /**
  * Kdy byla přednáška poprvé zpracovaná (shrnutí nebo dál), jako místní datum.
@@ -121,7 +122,7 @@ export interface Pace {
  * Tempo a výhled: stíhám, doháním, nebo mi dluh roste? Počítá z posledních
  * čtyř týdnů — delší okno by v semestru reagovalo moc pomalu.
  */
-export function computePace(lectures: readonly Lecture[], today: IsoDate): Pace {
+export function computePace(lectures: readonly Lecture[], today: IsoDate, notYet: NotYetHeld = NONE_PENDING): Pace {
   const recent = weeklyActivity(lectures, today, activeWeeks(lectures, today, 4));
   const processedPerWeek = recent.reduce((s, b) => s + b.processed, 0) / recent.length;
   const heldPerWeek = recent.reduce((s, b) => s + b.held, 0) / recent.length;
@@ -130,7 +131,7 @@ export function computePace(lectures: readonly Lecture[], today: IsoDate): Pace 
       l.deletedAt === null &&
       !isSkipped(l.status) &&
       !isDone(l.status) &&
-      (l.date === null || l.date <= today),
+      !isAhead(l, today, notYet),
   ).length;
 
   let outlook: Outlook;

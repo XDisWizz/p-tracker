@@ -11,6 +11,7 @@ import { FormattedNotes } from '../components/FormattedNotes';
 import { Button, IconButton } from '../components/ui/Button';
 import { SUBJECT_COLOR_CLASSES, cx } from '../components/tokens';
 import { ExamBadge } from '../components/ExamBadge';
+import { useNotYetHeld } from '../hooks/useNotYetHeld';
 
 interface StudySheetPanelProps {
   subjectId: Id;
@@ -28,6 +29,7 @@ export function StudySheetPanel({ subjectId, onBack, onOpenLecture }: StudySheet
   const lectures = useSubjectLectures(subjectId);
   const [focusOnly, setFocusOnly] = useState(false);
   const today = todayIso();
+  const notYet = useNotYetHeld();
 
   const entries = useMemo(
     () => (subject === undefined || subject === null || lectures === undefined ? [] : sheetEntries(subject, lectures)),
@@ -44,7 +46,7 @@ export function StudySheetPanel({ subjectId, onBack, onOpenLecture }: StudySheet
     );
   }
 
-  const missing = missingNotes(subject, lectures, today);
+  const missing = missingNotes(subject, lectures, today, notYet);
   const focused = entries.filter((e) => e.focus !== '');
   const visible = focusOnly ? focused : entries;
 

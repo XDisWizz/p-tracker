@@ -1,6 +1,7 @@
 import { formatCsDate } from './date';
 import { lectureDisplayTitle } from './defaults';
 import type { Lecture, Subject } from './types';
+import { NONE_PENDING, isAhead, type NotYetHeld } from './held';
 
 export interface SheetEntry {
   lecture: Lecture;
@@ -18,13 +19,18 @@ export function sheetEntries(subject: Subject, lectures: readonly Lecture[]): Sh
 }
 
 /** Kolik přednášek ještě zápis nemá — ať je jasné, že přehled není úplný. */
-export function missingNotes(subject: Subject, lectures: readonly Lecture[], today: string): Lecture[] {
+export function missingNotes(
+  subject: Subject,
+  lectures: readonly Lecture[],
+  today: string,
+  notYet: NotYetHeld = NONE_PENDING,
+): Lecture[] {
   return lectures.filter(
     (l) =>
       l.subjectId === subject.id &&
       l.deletedAt === null &&
       l.status !== 'skipped' &&
-      (l.date === null || l.date <= today) &&
+      !isAhead(l, today, notYet) &&
       l.summary.trim() === '' &&
       l.focus.trim() === '',
   );

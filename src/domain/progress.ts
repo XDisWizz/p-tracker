@@ -1,5 +1,6 @@
 import { LECTURE_STATUSES, type IsoDate, type Lecture, type LectureStatus } from './types';
 import { isDone, isPending, isSkipped } from './status';
+import { NONE_PENDING, isAhead, type NotYetHeld } from './held';
 
 export interface Progress {
   /** Přednášky započítané do procent — všechny kromě přeskočených. */
@@ -34,7 +35,11 @@ function emptyByStatus(): Record<LectureStatus, number> {
  *
  * Smazané (tombstone) záznamy si odfiltruj předem; tahle funkce o databázi nic neví.
  */
-export function computeProgress(lectures: readonly Lecture[], today: IsoDate | null = null): Progress {
+export function computeProgress(
+  lectures: readonly Lecture[],
+  today: IsoDate | null = null,
+  notYet: NotYetHeld = NONE_PENDING,
+): Progress {
   const byStatus = emptyByStatus();
   let done = 0;
   let pending = 0;
@@ -52,7 +57,8 @@ export function computeProgress(lectures: readonly Lecture[], today: IsoDate | n
       done += 1;
       continue;
     }
-    if (today !== null && lecture.date !== null && lecture.date > today) {
+    // Dnešní přednáška, která ještě neskončila, se zatím nepočítá — není co zpracovat.
+    if (today !== null && isAhead(lecture, today, notYet)) {
       upcoming += 1;
       continue;
     }
@@ -81,10 +87,11 @@ export function progressBySubject(
   lectures: readonly Lecture[],
   subjectIds: readonly string[],
   today: IsoDate | null = null,
+  notYet: NotYetHeld = NONE_PENDING,
 ): Map<string, Progress> {
   const grouped = groupBySubject(lectures);
   const out = new Map<string, Progress>();
-  for (const id of subjectIds) out.set(id, computeProgress(grouped.get(id) ?? [], today));
+  for (const id of subjectIds) out.set(id, computeProgress(grouped.get(id) ?? [], today, notYet));
   return out;
 }
 

@@ -9,6 +9,7 @@ import { SubjectCard } from '../components/SubjectCard';
 import { SubjectForm } from '../components/SubjectForm';
 import { Button } from '../components/ui/Button';
 import { useToast } from '../components/ui/Toast';
+import { useNotYetHeld } from '../hooks/useNotYetHeld';
 
 interface SubjectsPanelProps {
   selectedId: Id | null;
@@ -25,9 +26,10 @@ export function SubjectsPanel({ selectedId, onSelect }: SubjectsPanelProps) {
   const subjects = useSubjects(showArchived);
   const lectures = useAllLectures();
 
+  const notYet = useNotYetHeld();
   const progress = useMemo(
-    () => progressBySubject(lectures ?? [], (subjects ?? []).map((s) => s.id), todayIso()),
-    [lectures, subjects],
+    () => progressBySubject(lectures ?? [], (subjects ?? []).map((s) => s.id), todayIso(), notYet),
+    [lectures, subjects, notYet],
   );
 
   async function openNew(): Promise<void> {

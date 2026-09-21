@@ -18,6 +18,8 @@ import { Button, IconButton } from '../components/ui/Button';
 import { useToast } from '../components/ui/Toast';
 import { SUBJECT_COLOR_CLASSES, cx } from '../components/tokens';
 import { ExamBadge } from '../components/ExamBadge';
+import { useNotYetHeld } from '../hooks/useNotYetHeld';
+import { isAhead } from '../domain/held';
 
 interface SubjectDetailPanelProps {
   subjectId: Id | null;
@@ -48,6 +50,7 @@ export function SubjectDetailPanel({
   const lectures = useSubjectLectures(subjectId);
   const slots = useSubjectSlots(subjectId);
   const today = todayIso();
+  const notYet = useNotYetHeld();
 
   const sortedSlots = useMemo(
     () =>
@@ -66,10 +69,10 @@ export function SubjectDetailPanel({
 
   const keyboardLectures = useMemo(() => {
     const list = lectures ?? [];
-    const past = list.filter((l) => l.date === null || l.date <= today);
-    const future = list.filter((l) => l.date !== null && l.date > today);
+    const past = list.filter((l) => !isAhead(l, today, notYet));
+    const future = list.filter((l) => isAhead(l, today, notYet));
     return [...past, ...(showAllUpcoming ? future : future.slice(0, 2))];
-  }, [lectures, today, showAllUpcoming]);
+  }, [lectures, today, notYet, showAllUpcoming]);
 
   const selectedId = useListKeyboard({
     lectures: keyboardLectures,
@@ -83,14 +86,14 @@ export function SubjectDetailPanel({
   if (subject === null) return <NotFound onBack={onBack} />;
 
   const all = lectures ?? [];
-  const progress = computeProgress(all, today);
+  const progress = computeProgress(all, today, notYet);
   const colors = SUBJECT_COLOR_CLASSES[subject.color];
   // Předmět s jakoukoliv hodinou v rozvrhu má záznamy z rozvrhu (bez přednášky podle cvičení).
   const hasLectureSlots = sortedSlots.length > 0;
 
   // Budoucí přednášky z rozvrhu: ukázat nejbližší dvě, zbytek schovat, ať seznam nezavalí semestr dopředu.
-  const past = all.filter((l) => l.date === null || l.date <= today);
-  const future = all.filter((l) => l.date !== null && l.date > today);
+  const past = all.filter((l) => !isAhead(l, today, notYet));
+  const future = all.filter((l) => isAhead(l, today, notYet));
   const visibleFuture = showAllUpcoming ? future : future.slice(0, 2);
 
   /** Rychlé přidání jedním tapnutím — vše se odvodí z předchozí přednášky. */
@@ -106,7 +109,7 @@ export function SubjectDetailPanel({
     <LectureRow
       key={lecture.id}
       lecture={lecture}
-      upcoming={lecture.date !== null && lecture.date > today}
+      upcoming={isAhead(lecture, today, notYet)}
       isToday={lecture.date === today}
       selected={lecture.id === selectedId}
       onSetStatus={(status, source) =>

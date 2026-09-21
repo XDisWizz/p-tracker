@@ -1,5 +1,6 @@
 import type { Id, IsoDate, Lecture, LectureStatus, Subject } from './types';
 import { PENDING_STATUSES } from './status';
+import { NONE_PENDING, isAhead, type NotYetHeld } from './held';
 
 export interface LectureFilter {
   /** Prázdné pole znamená „všechny předměty“. Stejně tak u stavů a tagů. */
@@ -158,7 +159,7 @@ export function browseLectures(
 }
 
 export interface DueGroups {
-  /** Přednáška už proběhla (nebo je dnes) — tohle je skutečný dluh. */
+  /** Přednáška už proběhla (dnešní až po skončení hodiny) — tohle je skutečný dluh. */
   due: Lecture[];
   /** Naplánovaná do budoucna, typicky přidaná „Rychle přidat“ dopředu. */
   upcoming: Lecture[];
@@ -166,12 +167,16 @@ export interface DueGroups {
 }
 
 /** Rozdělí seřazený seznam podle toho, jestli přednáška už proběhla. Pořadí zachová. */
-export function groupByDue(lectures: readonly Lecture[], today: IsoDate): DueGroups {
+export function groupByDue(
+  lectures: readonly Lecture[],
+  today: IsoDate,
+  notYet: NotYetHeld = NONE_PENDING,
+): DueGroups {
   const groups: DueGroups = { due: [], upcoming: [], undated: [] };
   for (const lecture of lectures) {
     if (lecture.date === null) groups.undated.push(lecture);
-    else if (lecture.date <= today) groups.due.push(lecture);
-    else groups.upcoming.push(lecture);
+    else if (isAhead(lecture, today, notYet)) groups.upcoming.push(lecture);
+    else groups.due.push(lecture);
   }
   return groups;
 }

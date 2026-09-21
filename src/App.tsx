@@ -40,6 +40,7 @@ import { UpdatePrompt } from './components/UpdatePrompt';
 import { IconButton } from './components/ui/Button';
 import { ToastProvider } from './components/ui/Toast';
 import { cx } from './components/tokens';
+import { useNotYetHeld } from './hooks/useNotYetHeld';
 
 /** Šířka, od které se vejdou dva sloupce vedle sebe. Odpovídá Tailwind `lg`. */
 const TWO_COLUMN_QUERY = '(min-width: 1024px)';
@@ -61,10 +62,11 @@ function useIsWide(): boolean {
 function useDueCount(): { dueCount: number; hasData: boolean } {
   const subjects = useSubjects(true);
   const lectures = useAllLectures();
+  const notYet = useNotYetHeld();
   const dueCount = useMemo(() => {
     const pending = browseLectures(lectures ?? [], subjects ?? [], EMPTY_FILTER);
-    return groupByDue(pending, todayIso()).due.length;
-  }, [lectures, subjects]);
+    return groupByDue(pending, todayIso(), notYet).due.length;
+  }, [lectures, subjects, notYet]);
   return { dueCount, hasData: (subjects?.length ?? 0) > 0 };
 }
 
